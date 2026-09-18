@@ -5,8 +5,16 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:DesktopPet"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="DesktopPet"
+        Height="200" Width="200"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown">
     <Grid>
-
+        <Ellipse Width="120" Height="120" Fill="CornflowerBlue"/>
     </Grid>
 </Window>
