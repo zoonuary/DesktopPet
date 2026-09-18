@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-09-18 (4)
+
+- Added `PetWanderMovement`, a pure logic class computing left/right auto-wander position with edge bounce.
+- Wired a `DispatcherTimer` (16ms) into `MainWindow` to drive auto-wander, pausing while the user drags the window.
+- Verified: `dotnet build` clean, app runs without crash, user confirmed auto-wander/pause-on-drag behavior by running it directly.
+- Updated `patchlog/current/module-overview.md` to describe wander movement.
+
 ## 2026-09-18 (3)
 
 - Implemented v1's first feature: transparent, topmost, borderless `MainWindow` (200x200) with mouse-drag move via `DragMove()`. Placeholder `Ellipse` used to visually verify transparency/topmost behavior.
