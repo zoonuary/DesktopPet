@@ -2,25 +2,24 @@ namespace DesktopPet;
 
 public sealed class PetWanderMovement
 {
-    private const double SpeedPixelsPerSecond = 60.0;
+    private const double SpeedDipPerSecond = 60.0;
 
-    private int _directionX = 1;
-
-    public double GetNextLeft(double currentLeft, double windowWidth, double elapsedSeconds, double screenLeft, double screenRight)
+    public (double Left, bool HitBoundary) GetNextLeft(double currentLeft, int directionX, double windowWidth, double elapsedSeconds, double screenLeft, double screenRight)
     {
-        double nextLeft = currentLeft + (_directionX * SpeedPixelsPerSecond * elapsedSeconds);
+        double nextLeft = currentLeft + (directionX * SpeedDipPerSecond * elapsedSeconds);
+        bool hitBoundary = false;
 
         if (nextLeft <= screenLeft)
         {
             nextLeft = screenLeft;
-            _directionX = 1;
+            hitBoundary = true;
         }
         else if (nextLeft + windowWidth >= screenRight)
         {
             nextLeft = screenRight - windowWidth;
-            _directionX = -1;
+            hitBoundary = true;
         }
 
-        return nextLeft;
+        return (nextLeft, hitBoundary);
     }
 }

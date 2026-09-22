@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-09-22 (3)
+
+- Added `Behavior/PetState.cs` (`PetStateId`, `PetFacing`, `PetMode`) and `Behavior/PetBehaviorController.cs`, implementing the Idle/Walk/Rest/Sleep autonomous cycle and probability rules from `DESKTOP_PET_BEHAVIOR_SPEC.md` §2, plus `EnterDrag()`/`ExitDrag()` for the Drag state.
+- Refactored `PetWanderMovement.GetNextLeft` to take `directionX` as a parameter and return `(Left, HitBoundary)` instead of owning direction internally — direction ownership now belongs to `PetBehaviorController.Facing`, matching the "책임 경계" note in the behavior spec. Renamed `SpeedPixelsPerSecond` to `SpeedDipPerSecond`.
+- Wired `MainWindow`'s tick loop to drive the behavior controller (elapsed time clamped to 100ms), move only during `Walk`, and report boundary hits back to the controller. Left-click now calls `_behavior.EnterDrag()`/`ExitDrag()` around `DragMove()`.
+- Added a debug-only placeholder color per state (Idle/Walk/Rest/Sleep/Drag) on the `Ellipse` so behavior can be verified without real sprites.
+- Verified: `dotnet build` clean, app runs without crash; user confirmed drag turns the placeholder purple and reverts on release, and confirmed color changes over time reflect state transitions.
+- Updated `patchlog/current/module-overview.md` for the new Behavior layer and revised execution flow.
+
 ## 2026-09-22 (2)
 
 - Adopted `DESKTOP_PET_BEHAVIOR_SPEC.md` and `DESKTOP_PET_ASSET_GUIDE.md` as the v1 detailed design reference; `DESKTOP_PET_IDEAS.md` kept as non-binding roadmap. See `patchlog/decisions/2026-09-22-detailed-design-and-asset-root.md`.

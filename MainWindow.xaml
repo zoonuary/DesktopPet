@@ -15,6 +15,6 @@
         ResizeMode="NoResize"
         MouseLeftButtonDown="Window_MouseLeftButtonDown">
     <Grid>
-        <Ellipse Width="120" Height="120" Fill="CornflowerBlue"/>
+        <Ellipse x:Name="PetPlaceholder" Width="120" Height="120" Fill="CornflowerBlue"/>
     </Grid>
 </Window>
