@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-09-22 (4)
+
+- Wired Stay/Focus/Normal mode switching into `TrayIconService`: constructor now takes an initial mode and a mode-selected callback, and the context menu shows "일반 모드"/"여기서 쉬기"/"집중 모드" as checked radio-style items above a separator and "종료".
+- Fixed: `DispatcherTimer` was created with `DispatcherPriority.Render`, which is tied to WPF's render pass and didn't fire reliably without user interaction — autonomous state transitions (Idle→Walk/Rest etc.) effectively stalled until something forced a render (e.g. a drag). Changed to `DispatcherPriority.Normal` so ticks run consistently regardless of rendering.
+- Fixed: clicking a tray mode menu item called `_behavior.SetMode()` but left the placeholder color update to the next timer tick, so clicks appeared to do nothing. The mode-selected callback in `MainWindow` now calls `UpdatePlaceholderColor()` directly, matching how Drag already gives immediate feedback.
+- Verified: `dotnet build` clean, app runs without crash; user confirmed mode menu clicks change the placeholder color immediately.
+- Updated `patchlog/current/module-overview.md` with the tray mode menu, the timer priority fix, and the direct color-update fix.
+
 ## 2026-09-22 (3)
 
 - Added `Behavior/PetState.cs` (`PetStateId`, `PetFacing`, `PetMode`) and `Behavior/PetBehaviorController.cs`, implementing the Idle/Walk/Rest/Sleep autonomous cycle and probability rules from `DESKTOP_PET_BEHAVIOR_SPEC.md` §2, plus `EnterDrag()`/`ExitDrag()` for the Drag state.

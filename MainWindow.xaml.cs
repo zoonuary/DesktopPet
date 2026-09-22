@@ -28,13 +28,20 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
-        _wanderTimer = new DispatcherTimer(DispatcherPriority.Render)
+        _wanderTimer = new DispatcherTimer(DispatcherPriority.Normal)
         {
             Interval = TimeSpan.FromMilliseconds(16)
         };
         _wanderTimer.Tick += WanderTimer_Tick;
 
-        _trayIcon = new TrayIconService(() => System.Windows.Application.Current.Shutdown());
+        _trayIcon = new TrayIconService(
+            _behavior.Mode,
+            mode =>
+            {
+                _behavior.SetMode(mode);
+                UpdatePlaceholderColor();
+            },
+            () => System.Windows.Application.Current.Shutdown());
 
         Loaded += MainWindow_Loaded;
         Closed += MainWindow_Closed;

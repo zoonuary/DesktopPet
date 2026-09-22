@@ -1,6 +1,6 @@
 # DesktopPet Overview
 
-Last verified: 2026-09-22 (behavior state machine + drag state wired)
+Last verified: 2026-09-22 (Stay/Focus tray menu wired, timer/color-update bugs fixed)
 
 This document describes the current code state of `DesktopPet`.
 
@@ -48,17 +48,22 @@ DesktopPet/
 - `PetWanderMovement` (`PetWanderMovement.cs`): 주어진 방향(`directionX`)으로 다음 X좌표를 계산하고 경계 도달 여부만 보고하는 순수 로직 클래스. 방향을 자체적으로 반전하지 않는다 — 방향 소유권은 `PetBehaviorController.Facing`에 있다. 초당 60 DIP 속도.
 - `Behavior.PetState` (`Behavior/PetState.cs`): `PetStateId`(Idle/Walk/Rest/Sleep/React/Drag), `PetFacing`(Left/Right), `PetMode`(Normal/Stay/Focus) enum. React는 아직 미사용.
 - `Behavior.PetBehaviorController` (`Behavior/PetBehaviorController.cs`): 현재 상태·방향·모드와 남은 지속 시간을 소유. `Tick(elapsedSeconds)`로 지속 시간을 소모하고 만료 시 `DESKTOP_PET_BEHAVIOR_SPEC.md`의 확률 규칙(Idle→Walk 35%/Rest 65%, Rest→Idle 75%/Sleep 25%)에 따라 다음 상태로 전환한다. `NotifyBoundaryHit()`로 Walk 중 경계 도달을 알리면 Idle로 전환. `EnterDrag()`/`ExitDrag()`로 드래그 상태 진입/종료(종료 시 현재 모드의 기본 상태로 복귀)를 처리. `SetMode()`로 Normal/Stay/Focus 전환(Stay→Rest 유지, Focus→Sleep 유지). View나 WPF 타입을 알지 못하는 순수 로직.
-- `TrayIconService` (`TrayIconService.cs`): `System.Windows.Forms.NotifyIcon` 기반 시스템 트레이 아이콘. 생성자에서 종료 콜백(`Action`)을 받아 우클릭 메뉴 "종료" 클릭 시 호출한다. 아이콘은 아직 전용 에셋이 없어 `SystemIcons.Application`(임시)을 사용한다. "설정" 메뉴 항목은 설정 화면이 아직 없어 포함하지 않음 — 설정 화면 구현 시 함께 추가 예정. `IDisposable`로 트레이 아이콘 해제를 명시적으로 처리하며, `MainWindow.Closed`에서 호출된다.
+- `TrayIconService` (`TrayIconService.cs`): `System.Windows.Forms.NotifyIcon` 기반 시스템 트레이 아이콘. 생성자에서 초기 모드, 모드 선택 콜백(`Action<PetMode>`), 종료 콜백(`Action`)을 받는다. 우클릭 메뉴에 "일반 모드"/"여기서 쉬기"/"집중 모드"(체크 표시로 현재 모드 표시) + 구분선 + "종료"가 있다. 아이콘은 아직 전용 에셋이 없어 `SystemIcons.Application`(임시)을 사용한다. "설정" 메뉴 항목은 설정 화면이 아직 없어 포함하지 않음 — 설정 화면 구현 시 함께 추가 예정. `IDisposable`로 트레이 아이콘 해제를 명시적으로 처리하며, `MainWindow.Closed`에서 호출된다.
 
 ## Current Execution Flow
 
 1. `App` 시작 → `MainWindow` 표시.
 2. `MainWindow` 생성자에서 `TrayIconService`를 생성해 트레이 아이콘을 띄운다.
 3. `MainWindow`는 투명/항상 위 200x200 창으로 뜨며, `Loaded` 시점에 작업 영역 하단에 배치되고 배회/행동 타이머가 시작된다.
-4. `DispatcherTimer` Tick마다: 경과 시간을 최대 100ms로 clamp → `_behavior.Tick()`으로 상태 전환 처리 → 상태가 `Walk`이면 `PetWanderMovement.GetNextLeft()`로 위치 계산 후 `Left` 반영, 경계 도달 시 `_behavior.NotifyBoundaryHit()` 호출 → 상태가 바뀌었으면 자리표시자 색 갱신.
+4. `DispatcherTimer` Tick마다: 경과 시간을 최대 100ms로 clamp → `_behavior.Tick()`으로 상태 전환 처리 → 상태가 `Walk`이면 `PetWanderMovement.GetNextLeft()`로 위치 계산 후 `Left` 반영, 경계 도달 시 `_behavior.NotifyBoundaryHit()` 호출 → 상태가 바뀌었으면 자리표시자 색 갱신. 타이머 우선순위는 `DispatcherPriority.Normal`이다 (아래 "해결된 이슈" 참고).
 5. 사용자가 원 영역에서 좌클릭하면 `_behavior.EnterDrag()`로 즉시 Drag 상태(보라색)가 되고 자동 배회/행동 틱이 멈춘 채 `DragMove()`로 창이 마우스를 따라 이동한다. 드래그가 끝나면 `_behavior.ExitDrag()`로 현재 모드의 기본 상태(Normal→Idle 등)로 복귀한다.
-6. 트레이 아이콘 우클릭 → "종료"를 누르면 `System.Windows.Application.Current.Shutdown()`이 호출되어 앱이 종료된다. `MainWindow.Closed`에서 배회 타이머 정지 + 트레이 아이콘 해제.
-7. React 상태, 걷기 스프라이트 애니메이션, Stay/Focus 모드 전환 UI(트레이 메뉴), 설정 메뉴/화면, 실제 펫 스프라이트는 아직 미구현 — 현재는 자리표시자 원의 색과 좌우 이동으로만 상태를 표시한다.
+6. 트레이 아이콘 우클릭 → "일반 모드"/"여기서 쉬기"/"집중 모드"를 누르면 `_behavior.SetMode()` 호출 직후 `UpdatePlaceholderColor()`를 콜백 안에서 직접 호출해 클릭 즉시 색이 반영된다 (타이머 틱을 기다리지 않음). "종료"를 누르면 `System.Windows.Application.Current.Shutdown()`이 호출되어 앱이 종료된다. `MainWindow.Closed`에서 배회 타이머 정지 + 트레이 아이콘 해제.
+7. React 상태, 걷기 스프라이트 애니메이션, 설정 메뉴/화면, 실제 펫 스프라이트는 아직 미구현 — 현재는 자리표시자 원의 색과 좌우 이동으로만 상태를 표시한다.
+
+### 해결된 이슈
+
+- **타이머가 자동으로 진행되지 않던 문제**: `DispatcherTimer`를 `DispatcherPriority.Render`로 생성했더니, 화면이 다시 그려질 이유가 없으면 틱이 꾸준히 실행되지 않아 자동 상태 전환(Idle→Walk/Rest 등)이 사실상 멈춰 있었다. `DispatcherPriority.Normal`로 바꿔 렌더 패스와 무관하게 꾸준히 틱이 돌도록 수정했다.
+- **트레이 모드 메뉴 클릭 시 색이 안 바뀌던 문제**: 모드 선택 콜백이 `_behavior.SetMode()`만 호출하고 색 갱신은 다음 타이머 틱에 맡겼는데, 클릭 즉시 반응해야 하는 사용자 액션이라 콜백 안에서 `UpdatePlaceholderColor()`를 바로 호출하도록 수정했다.
 
 ## External Dependencies
 
@@ -72,7 +77,8 @@ DesktopPet/
 ## Confirmed Constraints
 
 - 투명/항상 위/드래그 이동/좌우 자동 배회/트레이 아이콘·종료/Idle·Walk·Rest·Sleep·Drag 상태 전환은 구현되어 사용자가 직접 실행해 확인함 (자리표시자 색 변화로 검증).
-- React 상태, 걷기 스프라이트 애니메이션, Stay/Focus 모드 전환 UI, 설정 메뉴/화면, 설정 저장(CFG)은 아직 미구현.
+- Stay/Focus 모드 전환은 트레이 메뉴로 구현되어 사용자가 직접 클릭해 확인함.
+- React 상태, 걷기 스프라이트 애니메이션, 설정 메뉴/화면, 설정 저장(CFG)은 아직 미구현.
 - 좁은 작업 영역에서 Walk 대신 Rest를 선택하는 규칙(BEHAVIOR_SPEC 2장)은 아직 미구현 — 현재는 화면 폭과 무관하게 확률대로 Walk를 선택할 수 있다.
 - CFG(설정 저장/복원) 시스템 없음 — 아직 저장할 설정값이 없음.
 
@@ -82,7 +88,7 @@ DesktopPet/
 
 - 비주얼/행동: `DESKTOP_PET_BEHAVIOR_SPEC.md` 기준 — Idle/Walk/Rest/Sleep/React/Drag 상태 머신, Normal/Stay/Focus 모드
 - 에셋: `DESKTOP_PET_ASSET_GUIDE.md` 기준 — 256×256 프레임 스프라이트 스트립, `character.json` 스키마, 외부(비임베디드) 리소스 폴더
-- 필수 기능: 투명/항상 위 창 + 드래그 이동(완료), 행동 상태 머신 Idle/Walk/Rest/Sleep/Drag(완료, 이미지 없이 색으로 검증), 자동 걷기 스프라이트 애니메이션(미구현), 트레이 아이콘(완료) + 우클릭 메뉴
+- 필수 기능: 투명/항상 위 창 + 드래그 이동(완료), 행동 상태 머신 Idle/Walk/Rest/Sleep/Drag(완료, 이미지 없이 색으로 검증), 자동 걷기 스프라이트 애니메이션(미구현), 트레이 아이콘 + 우클릭 메뉴(완료 — 모드 전환/종료, "설정" 항목만 보류)
 - 배포: 설치 프로그램(MSI/Installer)
 
 ## Needs Confirmation
