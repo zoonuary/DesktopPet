@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-09-22 (2)
+
+- Adopted `DESKTOP_PET_BEHAVIOR_SPEC.md` and `DESKTOP_PET_ASSET_GUIDE.md` as the v1 detailed design reference; `DESKTOP_PET_IDEAS.md` kept as non-binding roadmap. See `patchlog/decisions/2026-09-22-detailed-design-and-asset-root.md`.
+- Decided pet skins live as loose (non-embedded) files copied next to the built exe, not WPF embedded resources, so users can swap skins without rebuilding. Added `<None Update="Assets\**\*">` with `CopyToOutputDirectory=PreserveNewest` to `DesktopPet.csproj`.
+- Scaffolded `Assets/Pets/default/` (final runtime skin folder) and `ArtSource/default/` (+ `keyposes/`, `frames/`) working art source folders, both currently containing only README.md guides.
+- Verified: `dotnet build` clean; confirmed `Assets/Pets/default/README.md` is copied to `bin/Debug/net10.0-windows/Assets/Pets/default/`.
+- Updated `patchlog/current/module-overview.md` to reference the new design docs and asset folder layout; flagged missing reference character image as the current blocker for sprite production.
+
 ## 2026-09-22
 
 - Added `TrayIconService` (`System.Windows.Forms.NotifyIcon`) with a right-click "종료" menu item wired to `System.Windows.Application.Current.Shutdown()`. Enabled `UseWindowsForms` in the csproj and fully qualified `Application` in `App.xaml.cs`/`MainWindow.xaml.cs` to resolve the WPF/WinForms namespace clash.

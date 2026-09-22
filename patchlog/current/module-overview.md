@@ -1,11 +1,14 @@
 # DesktopPet Overview
 
-Last verified: 2026-09-22 (tray icon + exit added)
+Last verified: 2026-09-22 (detailed design docs adopted, asset folders scaffolded)
 
 This document describes the current code state of `DesktopPet`.
 
 Reference material used for background only:
 - `DEV_GUIDELINES.md` (approval process, code conventions, CFG/performance rules)
+- `DESKTOP_PET_BEHAVIOR_SPEC.md` (상태 머신, 모드, 좌표계, 구현 구조 — v1 상세 설계 기준 문서)
+- `DESKTOP_PET_ASSET_GUIDE.md` (스프라이트 제작 규격, `character.json` 스키마)
+- `DESKTOP_PET_IDEAS.md` (확정 명세 아님, 로드맵/아이디어 참고 자료)
 
 The current code and this `patchlog/current/*` area take priority over older plans or decision logs.
 
@@ -25,6 +28,11 @@ DesktopPet/
   .editorconfig                 네이밍/nullable 컨벤션
   DEV_GUIDELINES.md             개발 협업/코드 규칙
   AGENTS.md                     patchlog 사용 규칙
+  DESKTOP_PET_BEHAVIOR_SPEC.md  v1 상세 설계 (상태 머신, 모드, 좌표계, 구현 구조)
+  DESKTOP_PET_ASSET_GUIDE.md    스프라이트 제작 규격, character.json 스키마
+  DESKTOP_PET_IDEAS.md          로드맵/아이디어 참고 자료 (확정 명세 아님)
+  Assets/Pets/default/          앱이 런타임에 읽는 최종 스킨 (exe 옆에 복사됨, 현재 README만 존재)
+  ArtSource/default/            이미지 제작 작업용 원본 보관소 (배포 대상 아님)
   patchlog/                     현재 문서
 ```
 
@@ -52,6 +60,7 @@ DesktopPet/
 - Target Framework: `net10.0-windows`
 - `Nullable`, `ImplicitUsings` 활성화
 - `UseWPF`, `UseWindowsForms` 모두 활성화 (트레이 아이콘용 `System.Windows.Forms.NotifyIcon` 참조 목적). 두 네임스페이스에 동명 타입(`Application` 등)이 있어 `App.xaml.cs`와 `MainWindow.xaml.cs`에서 `System.Windows.Application`으로 완전 한정해 참조한다.
+- `Assets\**\*`는 `<None Update>` + `CopyToOutputDirectory=PreserveNewest`로 빌드 결과물(exe) 옆에 복사되는 느슨한 파일이다. 임베디드 리소스가 아니므로 사용자가 재빌드 없이 스킨을 교체할 수 있다. 자세한 이유는 `patchlog/decisions/2026-09-22-detailed-design-and-asset-root.md` 참고.
 - 외부 NuGet 패키지 없음 (기본 WPF + WinForms SDK만 사용)
 - Git remote: `origin` → `https://github.com/zoonuary/DesktopPet.git`
 
@@ -63,10 +72,11 @@ DesktopPet/
 
 ## v1 Scope (decided)
 
-자세한 배경과 대안은 `patchlog/decisions/2026-09-18-v1-scope.md` 참고.
+배경: `patchlog/decisions/2026-09-18-v1-scope.md` (방향), `patchlog/decisions/2026-09-22-detailed-design-and-asset-root.md` (상세 설계 채택 + 에셋 저장 방식).
 
-- 비주얼: 정지 이미지 + 상태별 스프라이트 시트
-- 필수 기능: 투명/항상 위 창 + 드래그 이동, 자동 걷기 애니메이션, 트레이 아이콘 + 우클릭 메뉴
+- 비주얼/행동: `DESKTOP_PET_BEHAVIOR_SPEC.md` 기준 — Idle/Walk/Rest/Sleep/React/Drag 상태 머신, Normal/Stay/Focus 모드
+- 에셋: `DESKTOP_PET_ASSET_GUIDE.md` 기준 — 256×256 프레임 스프라이트 스트립, `character.json` 스키마, 외부(비임베디드) 리소스 폴더
+- 필수 기능: 투명/항상 위 창 + 드래그 이동(완료), 자동 걷기 애니메이션, 트레이 아이콘(완료) + 우클릭 메뉴
 - 배포: 설치 프로그램(MSI/Installer)
 
 ## Needs Confirmation
@@ -75,3 +85,4 @@ DesktopPet/
 - 다중 펫(여러 캐릭터 동시 실행) 지원 여부는 v1 이후로 보류.
 - 트레이 우클릭 메뉴의 "설정" 항목과 실제 설정 화면은 아직 미구현 — 별도 기능으로 착수 예정.
 - 트레이 아이콘은 임시 시스템 아이콘(`SystemIcons.Application`) 사용 중 — 실제 펫 브랜드 아이콘(.ico)으로 교체 필요.
+- **블로커**: 원본 캐릭터 이미지가 아직 없음 (AI로 제작 예정, 진행 중). `ArtSource/default/reference.png`가 나와야 `DESKTOP_PET_ASSET_GUIDE.md`의 제작 순서(대표 자세 → 연속 프레임)를 시작할 수 있다.
