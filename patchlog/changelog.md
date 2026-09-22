@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-09-22
+
+- Added `TrayIconService` (`System.Windows.Forms.NotifyIcon`) with a right-click "종료" menu item wired to `System.Windows.Application.Current.Shutdown()`. Enabled `UseWindowsForms` in the csproj and fully qualified `Application` in `App.xaml.cs`/`MainWindow.xaml.cs` to resolve the WPF/WinForms namespace clash.
+- Deferred the "설정" tray menu item until a real settings screen exists, per plan agreed with the user.
+- `MainWindow.Closed` now stops the wander timer and disposes the tray icon.
+- Verified: `dotnet build` clean, app runs without crash, user confirmed the tray icon appears and right-click 종료 exits the app.
+- Updated `patchlog/current/module-overview.md` for tray icon behavior and the WPF/WinForms dependency note.
+
 ## 2026-09-18 (4)
 
 - Added `PetWanderMovement`, a pure logic class computing left/right auto-wander position with edge bounce.

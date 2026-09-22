@@ -16,6 +16,7 @@ public partial class MainWindow : Window
 {
     private readonly PetWanderMovement _wander = new();
     private readonly DispatcherTimer _wanderTimer;
+    private readonly TrayIconService _trayIcon;
     private DateTime _lastTick;
     private bool _isDragging;
 
@@ -29,7 +30,16 @@ public partial class MainWindow : Window
         };
         _wanderTimer.Tick += WanderTimer_Tick;
 
+        _trayIcon = new TrayIconService(() => System.Windows.Application.Current.Shutdown());
+
         Loaded += MainWindow_Loaded;
+        Closed += MainWindow_Closed;
+    }
+
+    private void MainWindow_Closed(object? sender, EventArgs e)
+    {
+        _wanderTimer.Stop();
+        _trayIcon.Dispose();
     }
 
     private void MainWindow_Loaded(object sender, RoutedEventArgs e)
