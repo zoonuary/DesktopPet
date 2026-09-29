@@ -1,4 +1,6 @@
+using System.IO;
 using System.Text;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -9,6 +11,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+using DesktopPet.Animation;
 using DesktopPet.Behavior;
 
 namespace DesktopPet;
@@ -19,14 +22,20 @@ public partial class MainWindow : Window
 
     private readonly PetWanderMovement _wander = new();
     private readonly PetBehaviorController _behavior = new();
+    private readonly PetAnimationPlayer _animation = new();
     private readonly DispatcherTimer _wanderTimer;
     private readonly TrayIconService _trayIcon;
+    private PetSkin? _skin;
+    private string? _currentClipName;
+    private int _currentFrameIndex = -1;
     private DateTime _lastTick;
     private bool _isDragging;
 
     public MainWindow()
     {
         InitializeComponent();
+
+        LoadSkin();
 
         _wanderTimer = new DispatcherTimer(DispatcherPriority.Normal)
         {
@@ -39,12 +48,28 @@ public partial class MainWindow : Window
             mode =>
             {
                 _behavior.SetMode(mode);
-                UpdatePlaceholderColor();
+                RefreshVisual();
             },
             () => System.Windows.Application.Current.Shutdown());
 
         Loaded += MainWindow_Loaded;
         Closed += MainWindow_Closed;
+    }
+
+    private void LoadSkin()
+    {
+        try
+        {
+            string skinDirectory = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "Pets", "default");
+            _skin = PetAssetLoader.LoadSkin(skinDirectory);
+            PetPlaceholder.Visibility = Visibility.Collapsed;
+            PetImage.Visibility = Visibility.Visible;
+        }
+        catch (Exception ex) when (ex is PetAssetLoadException or IOException or JsonException)
+        {
+            System.Diagnostics.Debug.WriteLine($"Pet skin load failed, falling back to placeholder: {ex.Message}");
+            _skin = null;
+        }
     }
 
     private void MainWindow_Closed(object? sender, EventArgs e)
@@ -55,7 +80,16 @@ public partial class MainWindow : Window
 
     private void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
-        Top = SystemParameters.WorkArea.Bottom - Height;
+        Rect workArea = SystemParameters.WorkArea;
+        if (_skin is not null)
+        {
+            double anchorRatio = (double)_skin.Definition.AnchorYPx / _skin.Definition.FrameHeightPx;
+            Top = workArea.Bottom - (anchorRatio * Height);
+        }
+        else
+        {
+            Top = workArea.Bottom - Height;
+        }
 
         _lastTick = DateTime.UtcNow;
         _wanderTimer.Start();
@@ -88,11 +122,72 @@ public partial class MainWindow : Window
             }
         }
 
-        if (_behavior.State != previousState)
+        if (_skin is not null)
+        {
+            UpdateAnimationFrame(elapsedSeconds * 1000.0);
+        }
+        else if (_behavior.State != previousState)
         {
             UpdatePlaceholderColor();
         }
     }
+
+    private void RefreshVisual()
+    {
+        if (_skin is not null)
+        {
+            UpdateAnimationFrame(0);
+        }
+        else
+        {
+            UpdatePlaceholderColor();
+        }
+    }
+
+    private void UpdateAnimationFrame(double elapsedMs)
+    {
+        if (_skin is null)
+        {
+            return;
+        }
+
+        string clipName = ClipNameFor(_behavior.State);
+        if (!_skin.Definition.Clips.TryGetValue(clipName, out PetClipDefinition? clip))
+        {
+            return;
+        }
+
+        _animation.SetClip(clipName, clip);
+        _animation.Tick(elapsedMs);
+
+        if (clipName != _currentClipName || _animation.FrameIndex != _currentFrameIndex)
+        {
+            _currentClipName = clipName;
+            _currentFrameIndex = _animation.FrameIndex;
+
+            BitmapSource sheet = _skin.ClipImages[clipName];
+            int frameWidth = _skin.Definition.FrameWidthPx;
+            int frameHeight = _skin.Definition.FrameHeightPx;
+            var sourceRect = new Int32Rect(_currentFrameIndex * frameWidth, 0, frameWidth, frameHeight);
+            PetImage.Source = new CroppedBitmap(sheet, sourceRect);
+        }
+
+        if (_skin.Definition.AllowMirror)
+        {
+            PetImageFlip.ScaleX = _behavior.Facing == PetFacing.Left ? -1 : 1;
+        }
+    }
+
+    private static string ClipNameFor(PetStateId state) => state switch
+    {
+        PetStateId.Idle => "idle",
+        PetStateId.Walk => "walk",
+        PetStateId.Rest => "rest",
+        PetStateId.Sleep => "sleep",
+        PetStateId.React => "react",
+        PetStateId.Drag => "drag",
+        _ => "idle"
+    };
 
     private void UpdatePlaceholderColor()
     {
@@ -111,7 +206,7 @@ public partial class MainWindow : Window
     {
         _isDragging = true;
         _behavior.EnterDrag();
-        UpdatePlaceholderColor();
+        RefreshVisual();
         try
         {
             DragMove();
@@ -120,7 +215,7 @@ public partial class MainWindow : Window
         {
             _isDragging = false;
             _behavior.ExitDrag();
-            UpdatePlaceholderColor();
+            RefreshVisual();
         }
     }
 }

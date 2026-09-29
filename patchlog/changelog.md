@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-09-29 (2)
+
+- Added `Animation/PetAssetDefinition.cs` (`PetClipDefinition`, `PetCharacterDefinition`, `PetSkin` records), `Animation/PetAssetLoader.cs` (`LoadSkin`: parses/validates `character.json`, rejects paths escaping the skin directory, checks each clip image's actual size against `frameCount × frameSizePx`, loads each PNG once via `BitmapImage`/`Freeze()`), and `Animation/PetAnimationPlayer.cs` (`SetClip`/`Tick(elapsedMs)` → `FrameIndex`, loop-or-hold on last frame).
+- Wired sprite rendering into `MainWindow`: added an `Image` (`PetImage`) with a `ScaleTransform` for mirroring, tried loading `Assets/Pets/default` in the constructor, and fall back to the existing placeholder `Ellipse` on `PetAssetLoadException`/`IOException`/`JsonException`. Per-tick, `UpdateAnimationFrame` maps `PetStateId` to a clip name, advances `PetAnimationPlayer`, and only rebuilds the `CroppedBitmap` when the clip or frame index actually changes.
+- Resized `MainWindow` from 200x200 to 160x160 (BEHAVIOR_SPEC's suggested display canvas), and changed initial placement to use the anchor-ratio formula (`Top = WorkArea.Bottom - AnchorYPx/FrameHeightPx * Height`) when a skin is loaded, so the character's feet land on the work area bottom instead of the window's bottom edge.
+- Replaced direct `UpdatePlaceholderColor()` calls in the drag handler and tray mode callback with `RefreshVisual()`, which updates the sprite frame immediately when a skin is loaded or falls back to the color update otherwise.
+- Verified: `dotnet build` clean; app runs without crash; user confirmed the real sprite renders, animates per state, and mirrors during Walk.
+- Updated `patchlog/current/module-overview.md` extensively: new Animation layer, revised MainWindow/execution-flow description, window size, and constraints (React still unconnected to input, fallback path untested against an actual load failure).
+
 ## 2026-09-29
 
 - Added final AI-generated sprite assets for all six clips (idle 4f, walk 6f, rest 2f, sleep 4f, react 4f, drag 1f) to `Assets/Pets/default/`, plus `character.json` per the `DESKTOP_PET_ASSET_GUIDE.md` schema (frameSizePx 256x256, anchorPx (128,232), allowMirror true).

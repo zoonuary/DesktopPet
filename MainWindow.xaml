@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:DesktopPet"
         mc:Ignorable="d"
         Title="DesktopPet"
-        Height="200" Width="200"
+        Height="160" Width="160"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
@@ -16,5 +16,10 @@
         MouseLeftButtonDown="Window_MouseLeftButtonDown">
     <Grid>
         <Ellipse x:Name="PetPlaceholder" Width="120" Height="120" Fill="CornflowerBlue"/>
+        <Image x:Name="PetImage" Width="160" Height="160" Stretch="Uniform" Visibility="Collapsed" RenderTransformOrigin="0.5,0.5">
+            <Image.RenderTransform>
+                <ScaleTransform x:Name="PetImageFlip" ScaleX="1"/>
+            </Image.RenderTransform>
+        </Image>
     </Grid>
 </Window>
