@@ -1,6 +1,6 @@
 # DesktopPet Overview
 
-Last verified: 2026-09-29 (sprite loading and animation wired, placeholder retired to fallback-only)
+Last verified: 2026-09-29 (edge-aware Walk facing + multi-monitor work area fixed)
 
 This document describes the current code state of `DesktopPet`.
 
@@ -48,10 +48,10 @@ DesktopPet/
 ## Key Components
 
 - `App` (`App.xaml.cs`): WPF 기본 애플리케이션 진입점. 커스텀 로직 없음.
-- `MainWindow` (`MainWindow.xaml` / `.xaml.cs`): 160x160 크기(BEHAVIOR_SPEC 표시 캔버스 기본값), 테두리 없는(`WindowStyle=None`) 투명(`AllowsTransparency=True`, `Background=Transparent`) 항상 위(`Topmost=True`) 창. 작업표시줄에 표시되지 않음(`ShowInTaskbar=False`). 생성자에서 `Assets/Pets/default`(exe 기준 `AppContext.BaseDirectory` 상대 경로)를 `PetAssetLoader.LoadSkin()`으로 로드 시도한다. 성공하면 `Image`(`x:Name="PetImage"`)를 보여주고 자리표시자 `Ellipse`(`x:Name="PetPlaceholder"`)는 숨긴다. 실패(예: `PetAssetLoadException`, `IOException`, `JsonException`)하면 `_skin`이 null로 남고 기존 색 기반 자리표시자로 폴백한다(Idle=CornflowerBlue, Walk=LimeGreen, Rest=Orange, Sleep=Gray, Drag=MediumPurple). `Window_MouseLeftButtonDown`에서 `_behavior.EnterDrag()` 후 `DragMove()`를 호출하고, 끝나면 `_behavior.ExitDrag()`로 모드 기본 상태로 복귀하며 그때마다 `RefreshVisual()`로 즉시 반영한다. `Loaded` 시점에 스킨이 있으면 기준점 비율(`AnchorYPx / FrameHeightPx`)로 발 위치가 작업 영역 하단에 오도록 `Top`을 계산하고, 없으면 기존처럼 창 바닥 기준으로 배치한 뒤 `DispatcherTimer`(16ms)를 시작한다.
+- `MainWindow` (`MainWindow.xaml` / `.xaml.cs`): 160x160 크기(BEHAVIOR_SPEC 표시 캔버스 기본값), 테두리 없는(`WindowStyle=None`) 투명(`AllowsTransparency=True`, `Background=Transparent`) 항상 위(`Topmost=True`) 창. 작업표시줄에 표시되지 않음(`ShowInTaskbar=False`). 생성자에서 `Assets/Pets/default`(exe 기준 `AppContext.BaseDirectory` 상대 경로)를 `PetAssetLoader.LoadSkin()`으로 로드 시도한다. 성공하면 `Image`(`x:Name="PetImage"`)를 보여주고 자리표시자 `Ellipse`(`x:Name="PetPlaceholder"`)는 숨긴다. 실패(예: `PetAssetLoadException`, `IOException`, `JsonException`)하면 `_skin`이 null로 남고 기존 색 기반 자리표시자로 폴백한다(Idle=CornflowerBlue, Walk=LimeGreen, Rest=Orange, Sleep=Gray, Drag=MediumPurple). `Window_MouseLeftButtonDown`에서 `_behavior.EnterDrag()` 후 `DragMove()`를 호출하고, 끝나면 `_behavior.ExitDrag()`로 모드 기본 상태로 복귀하며 그때마다 `RefreshVisual()`로 즉시 반영한다. `Loaded` 시점에 창 가로 위치를 현재 모니터 작업 영역 중앙으로 명시적으로 설정하고(스킨이 있으면 기준점 비율로, 없으면 창 바닥 기준으로 `Top` 계산), `DispatcherTimer`(16ms)를 시작한다. `GetCurrentWorkArea()`로 작업 영역을 구한다 (아래 "해결된 이슈" 참고).
 - `PetWanderMovement` (`PetWanderMovement.cs`): 주어진 방향(`directionX`)으로 다음 X좌표를 계산하고 경계 도달 여부만 보고하는 순수 로직 클래스. 방향을 자체적으로 반전하지 않는다 — 방향 소유권은 `PetBehaviorController.Facing`에 있다. 초당 60 DIP 속도.
 - `Behavior.PetState` (`Behavior/PetState.cs`): `PetStateId`(Idle/Walk/Rest/Sleep/React/Drag), `PetFacing`(Left/Right), `PetMode`(Normal/Stay/Focus) enum. React는 아직 미사용.
-- `Behavior.PetBehaviorController` (`Behavior/PetBehaviorController.cs`): 현재 상태·방향·모드와 남은 지속 시간을 소유. `Tick(elapsedSeconds)`로 지속 시간을 소모하고 만료 시 `DESKTOP_PET_BEHAVIOR_SPEC.md`의 확률 규칙(Idle→Walk 35%/Rest 65%, Rest→Idle 75%/Sleep 25%)에 따라 다음 상태로 전환한다. `NotifyBoundaryHit()`로 Walk 중 경계 도달을 알리면 Idle로 전환. `EnterDrag()`/`ExitDrag()`로 드래그 상태 진입/종료(종료 시 현재 모드의 기본 상태로 복귀)를 처리. `SetMode()`로 Normal/Stay/Focus 전환(Stay→Rest 유지, Focus→Sleep 유지). View나 WPF 타입을 알지 못하는 순수 로직.
+- `Behavior.PetBehaviorController` (`Behavior/PetBehaviorController.cs`): 현재 상태·방향·모드와 남은 지속 시간을 소유. `Tick(elapsedSeconds, nearLeftEdge, nearRightEdge)`로 지속 시간을 소모하고 만료 시 `DESKTOP_PET_BEHAVIOR_SPEC.md`의 확률 규칙(Idle→Walk 35%/Rest 65%, Rest→Idle 75%/Sleep 25%)에 따라 다음 상태로 전환한다. `nearLeftEdge`/`nearRightEdge`는 WPF 타입이 아닌 평범한 bool로, Walk 진입 시 방향 선택(`ChooseWalkFacing`)에 쓰인다 — 경계 근처면 안쪽 방향을 강제 선택하고, 아니면 랜덤 선택한다(BEHAVIOR_SPEC "방향은 Walk 진입 시 결정... 경계에 있다면 안쪽을 선택"). `NotifyBoundaryHit()`로 Walk 중 경계 도달을 알리면 Idle로 전환. `EnterDrag()`/`ExitDrag()`로 드래그 상태 진입/종료(종료 시 현재 모드의 기본 상태로 복귀)를 처리. `SetMode()`로 Normal/Stay/Focus 전환(Stay→Rest 유지, Focus→Sleep 유지). View나 WPF 타입을 알지 못하는 순수 로직.
 - `TrayIconService` (`TrayIconService.cs`): `System.Windows.Forms.NotifyIcon` 기반 시스템 트레이 아이콘. 생성자에서 초기 모드, 모드 선택 콜백(`Action<PetMode>`), 종료 콜백(`Action`)을 받는다. 우클릭 메뉴에 "일반 모드"/"여기서 쉬기"/"집중 모드"(체크 표시로 현재 모드 표시) + 구분선 + "종료"가 있다. 아이콘은 아직 전용 에셋이 없어 `SystemIcons.Application`(임시)을 사용한다. "설정" 메뉴 항목은 설정 화면이 아직 없어 포함하지 않음 — 설정 화면 구현 시 함께 추가 예정. `IDisposable`로 트레이 아이콘 해제를 명시적으로 처리하며, `MainWindow.Closed`에서 호출된다.
 - `Animation.PetAssetDefinition.cs`: `PetClipDefinition`(File/FrameCount/FrameDurationMs/Loop), `PetCharacterDefinition`(스키마 버전·id·프레임 크기·기준점·기본 방향·`AllowMirror`·클립 사전), `PetSkin`(`PetCharacterDefinition` + 클립별 로드된 `BitmapSource`) 레코드.
 - `Animation.PetAssetLoader` (`Animation/PetAssetLoader.cs`): `LoadSkin(skinDirectory)`가 `character.json`을 파싱·검증(스키마 버전 1, 6개 필수 클립 존재, 스킨 폴더 밖 경로 거부, 프레임 이미지 실제 크기가 `frameCount × frameSizePx`와 일치)한 뒤 각 클립 PNG를 `BitmapImage`(`CacheOption=OnLoad` + `Freeze()`)로 한 번만 로드해 `PetSkin`으로 반환한다. 검증 실패 시 `PetAssetLoadException`을 던진다.
@@ -71,6 +71,8 @@ DesktopPet/
 
 - **타이머가 자동으로 진행되지 않던 문제**: `DispatcherTimer`를 `DispatcherPriority.Render`로 생성했더니, 화면이 다시 그려질 이유가 없으면 틱이 꾸준히 실행되지 않아 자동 상태 전환(Idle→Walk/Rest 등)이 사실상 멈춰 있었다. `DispatcherPriority.Normal`로 바꿔 렌더 패스와 무관하게 꾸준히 틱이 돌도록 수정했다.
 - **트레이 모드 메뉴 클릭 시 색이 안 바뀌던 문제**: 모드 선택 콜백이 `_behavior.SetMode()`만 호출하고 색 갱신은 다음 타이머 틱에 맡겼는데, 클릭 즉시 반응해야 하는 사용자 액션이라 콜백 안에서 `UpdatePlaceholderColor()`를 바로 호출하도록 수정했다.
+- **Walk 진입 직후 즉시 Idle로 돌아가던 문제**: Walk 방향(Facing)을 완전 무작위로 골랐는데, 펫이 이미 화면 경계 근처에 있을 때 그 방향이 벽 쪽이면 첫 틱에 바로 `NotifyBoundaryHit()`이 호출되어 좌표만 살짝 바뀌고 즉시 Idle로 돌아갔다. `PetBehaviorController.Tick()`이 `nearLeftEdge`/`nearRightEdge`를 받아 Walk 진입 시 경계 근처면 안쪽 방향을 강제 선택하도록 수정했다. 창 시작 위치도 OS 기본 배치(어디든 될 수 있음)에 맡기지 않고 현재 모니터 작업 영역 가로 중앙으로 명시적으로 설정했다.
+- **듀얼 모니터에서 Walk가 시작하자마자 끝나던 문제**: `SystemParameters.WorkArea`는 항상 주 모니터의 작업 영역만 반환해서, 펫이 두 번째 모니터에 있으면 좌표가 이미 그 범위를 벗어난 것으로 계산돼 경계 판정이 즉시 발생했다. `GetCurrentWorkArea()`를 추가해 `System.Windows.Forms.Screen.FromHandle()`로 창이 실제로 위치한 모니터를 찾고, `VisualTreeHelper.GetDpi()`로 픽셀→DIP 변환해서 반환하도록 수정했다 (화면을 못 찾는 예외적 경우엔 `SystemParameters.WorkArea`로 폴백).
 
 ## External Dependencies
 
@@ -85,6 +87,7 @@ DesktopPet/
 
 - 투명/항상 위/드래그 이동/좌우 자동 배회/트레이 아이콘·종료/Idle·Walk·Rest·Sleep·Drag 상태 전환, Stay/Focus 모드 전환은 구현되어 사용자가 직접 실행해 확인함.
 - 실제 스프라이트 로딩·재생(idle/walk/rest/sleep/drag 클립, 좌우 반전 포함)이 구현되어 사용자가 직접 실행해 확인함. 로드 실패 시 색 기반 자리표시자로 폴백하는 경로는 코드상으로만 존재하고 실제로 실패시켜 검증하지는 않았다(예: character.json 삭제/손상 시나리오 미검증).
+- Walk가 경계 근처에서 시작해도 안쪽 방향으로 정상적으로 몇 초간 이동하는 것을 확인함. 듀얼 모니터 환경에서 펫을 두 번째 모니터로 드래그한 뒤에도 그 모니터 안에서 정상 동작하는 것을 사용자가 직접 확인함.
 - React 상태는 정의는 있지만 아직 어떤 사용자 입력도 연결되어 있지 않아 실제로 진입하지 않는다 — 클릭은 여전히 드래그로만 처리된다. 짧은 클릭과 드래그를 구분하는 로직(BEHAVIOR_SPEC 3장 "클릭과 드래그")도 아직 없다.
 - 설정 메뉴/화면, 설정 저장(CFG)은 아직 미구현 — 재실행하면 항상 초기 상태(Normal 모드, 작업 영역 하단)로 시작한다.
 - 좁은 작업 영역에서 Walk 대신 Rest를 선택하는 규칙(BEHAVIOR_SPEC 2장)은 아직 미구현 — 현재는 화면 폭과 무관하게 확률대로 Walk를 선택할 수 있다.

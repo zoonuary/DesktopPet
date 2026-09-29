@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-09-29 (3)
+
+- Fixed Walk immediately reverting to Idle: `PetBehaviorController.Tick()` now takes `nearLeftEdge`/`nearRightEdge` bools (plain bools, no WPF types) and `EnterWalk()` chooses an inward facing when already near an edge instead of a fully random one, per `DESKTOP_PET_BEHAVIOR_SPEC.md`'s "경계에 있다면 안쪽을 선택" rule.
+- Fixed the same symptom on multi-monitor setups: `SystemParameters.WorkArea` only ever returns the primary monitor's work area, so a pet on a secondary monitor had its coordinates compared against the wrong bounds and hit "boundary" almost instantly. Added `MainWindow.GetCurrentWorkArea()`, which finds the actual monitor via `System.Windows.Forms.Screen.FromHandle()` and converts pixels to DIPs via `VisualTreeHelper.GetDpi()`, falling back to `SystemParameters.WorkArea` if no screen is found.
+- `MainWindow_Loaded` now explicitly centers the window horizontally on the current monitor's work area instead of relying on OS default placement, which could land near an edge.
+- Verified: `dotnet build` clean; user confirmed Walk now moves for several seconds before stopping, and that dragging the pet to a second monitor no longer causes Walk to end instantly.
+- Updated `patchlog/current/module-overview.md` with both fixes.
+
 ## 2026-09-29 (2)
 
 - Added `Animation/PetAssetDefinition.cs` (`PetClipDefinition`, `PetCharacterDefinition`, `PetSkin` records), `Animation/PetAssetLoader.cs` (`LoadSkin`: parses/validates `character.json`, rejects paths escaping the skin directory, checks each clip image's actual size against `frameCount × frameSizePx`, loads each PNG once via `BitmapImage`/`Freeze()`), and `Animation/PetAnimationPlayer.cs` (`SetClip`/`Tick(elapsedMs)` → `FrameIndex`, loop-or-hold on last frame).

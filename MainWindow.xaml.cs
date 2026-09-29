@@ -80,7 +80,9 @@ public partial class MainWindow : Window
 
     private void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
-        Rect workArea = SystemParameters.WorkArea;
+        Rect workArea = GetCurrentWorkArea();
+        Left = workArea.Left + ((workArea.Width - Width) / 2.0);
+
         if (_skin is not null)
         {
             double anchorRatio = (double)_skin.Definition.AnchorYPx / _skin.Definition.FrameHeightPx;
@@ -106,13 +108,16 @@ public partial class MainWindow : Window
             return;
         }
 
+        Rect workArea = GetCurrentWorkArea();
+        bool nearLeftEdge = Left <= workArea.Left;
+        bool nearRightEdge = Left + Width >= workArea.Right;
+
         PetStateId previousState = _behavior.State;
-        _behavior.Tick(elapsedSeconds);
+        _behavior.Tick(elapsedSeconds, nearLeftEdge, nearRightEdge);
 
         if (_behavior.State == PetStateId.Walk)
         {
             int directionX = _behavior.Facing == PetFacing.Left ? -1 : 1;
-            Rect workArea = SystemParameters.WorkArea;
             (double nextLeft, bool hitBoundary) = _wander.GetNextLeft(Left, directionX, Width, elapsedSeconds, workArea.Left, workArea.Right);
             Left = nextLeft;
 
@@ -130,6 +135,28 @@ public partial class MainWindow : Window
         {
             UpdatePlaceholderColor();
         }
+    }
+
+    private Rect GetCurrentWorkArea()
+    {
+        var interopHelper = new System.Windows.Interop.WindowInteropHelper(this);
+        System.Windows.Forms.Screen? screen = interopHelper.Handle != IntPtr.Zero
+            ? System.Windows.Forms.Screen.FromHandle(interopHelper.Handle)
+            : System.Windows.Forms.Screen.PrimaryScreen;
+
+        if (screen is null)
+        {
+            return SystemParameters.WorkArea;
+        }
+
+        DpiScale dpi = VisualTreeHelper.GetDpi(this);
+        System.Drawing.Rectangle wa = screen.WorkingArea;
+
+        return new Rect(
+            wa.Left / dpi.DpiScaleX,
+            wa.Top / dpi.DpiScaleY,
+            wa.Width / dpi.DpiScaleX,
+            wa.Height / dpi.DpiScaleY);
     }
 
     private void RefreshVisual()

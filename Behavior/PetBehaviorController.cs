@@ -6,6 +6,8 @@ public sealed class PetBehaviorController
     private readonly Random _random;
 
     private double _remainingSeconds;
+    private bool _nearLeftEdge;
+    private bool _nearRightEdge;
 
     public PetBehaviorController(Random? random = null)
     {
@@ -48,8 +50,11 @@ public sealed class PetBehaviorController
         EnterModeDefaultState();
     }
 
-    public void Tick(double elapsedSeconds)
+    public void Tick(double elapsedSeconds, bool nearLeftEdge, bool nearRightEdge)
     {
+        _nearLeftEdge = nearLeftEdge;
+        _nearRightEdge = nearRightEdge;
+
         _remainingSeconds -= elapsedSeconds;
         if (_remainingSeconds > 0)
         {
@@ -134,8 +139,23 @@ public sealed class PetBehaviorController
     private void EnterWalk()
     {
         State = PetStateId.Walk;
-        Facing = _random.NextDouble() < 0.5 ? PetFacing.Left : PetFacing.Right;
+        Facing = ChooseWalkFacing();
         _remainingSeconds = NextWalkDuration();
+    }
+
+    private PetFacing ChooseWalkFacing()
+    {
+        if (_nearLeftEdge && !_nearRightEdge)
+        {
+            return PetFacing.Right;
+        }
+
+        if (_nearRightEdge && !_nearLeftEdge)
+        {
+            return PetFacing.Left;
+        }
+
+        return _random.NextDouble() < 0.5 ? PetFacing.Left : PetFacing.Right;
     }
 
     private void EnterRest()
