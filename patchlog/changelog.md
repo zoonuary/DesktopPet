@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-09-29 (4)
+
+- Decided to use a portable self-contained single-file `dotnet publish` build for cross-PC testing instead of a full installer (still deferred to the real deployment stage). See `patchlog/decisions/2026-09-29-portable-publish.md` for the exact command and output layout.
+- Verified: `dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true` produces a working `DesktopPet.exe` (~170MB) with `Assets/Pets/default/` copied alongside it automatically; ran the published exe standalone without crashing.
+
 ## 2026-09-29 (3)
 
 - Fixed Walk immediately reverting to Idle: `PetBehaviorController.Tick()` now takes `nearLeftEdge`/`nearRightEdge` bools (plain bools, no WPF types) and `EnterWalk()` chooses an inward facing when already near an edge instead of a fully random one, per `DESKTOP_PET_BEHAVIOR_SPEC.md`'s "경계에 있다면 안쪽을 선택" rule.
