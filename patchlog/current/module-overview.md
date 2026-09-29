@@ -1,6 +1,6 @@
 # DesktopPet Overview
 
-Last verified: 2026-09-22 (Stay/Focus tray menu wired, timer/color-update bugs fixed)
+Last verified: 2026-09-29 (final sprite assets + character.json added, not yet loaded by app)
 
 This document describes the current code state of `DesktopPet`.
 
@@ -34,7 +34,7 @@ DesktopPet/
   DESKTOP_PET_BEHAVIOR_SPEC.md  v1 상세 설계 (상태 머신, 모드, 좌표계, 구현 구조)
   DESKTOP_PET_ASSET_GUIDE.md    스프라이트 제작 규격, character.json 스키마
   DESKTOP_PET_IDEAS.md          로드맵/아이디어 참고 자료 (확정 명세 아님)
-  Assets/Pets/default/          앱이 런타임에 읽는 최종 스킨 (exe 옆에 복사됨, 현재 README만 존재)
+  Assets/Pets/default/          앱이 런타임에 읽는 최종 스킨 (exe 옆에 복사됨). idle/walk/rest/sleep/react/drag.png + character.json 존재, 아직 로더 코드 없어 앱은 미사용
   ArtSource/default/            이미지 제작 작업용 원본 보관소 (배포 대상 아님)
   patchlog/                     현재 문서
 ```
@@ -78,6 +78,7 @@ DesktopPet/
 
 - 투명/항상 위/드래그 이동/좌우 자동 배회/트레이 아이콘·종료/Idle·Walk·Rest·Sleep·Drag 상태 전환은 구현되어 사용자가 직접 실행해 확인함 (자리표시자 색 변화로 검증).
 - Stay/Focus 모드 전환은 트레이 메뉴로 구현되어 사용자가 직접 클릭해 확인함.
+- 최종 스프라이트 6종 + `character.json`은 `Assets/Pets/default/`에 있지만, 이를 실제로 읽어 재생하는 코드(`PetAssetLoader`, `PetAnimationPlayer`)는 아직 없다 — `MainWindow`는 여전히 자리표시자 `Ellipse`를 사용한다.
 - React 상태, 걷기 스프라이트 애니메이션, 설정 메뉴/화면, 설정 저장(CFG)은 아직 미구현.
 - 좁은 작업 영역에서 Walk 대신 Rest를 선택하는 규칙(BEHAVIOR_SPEC 2장)은 아직 미구현 — 현재는 화면 폭과 무관하게 확률대로 Walk를 선택할 수 있다.
 - CFG(설정 저장/복원) 시스템 없음 — 아직 저장할 설정값이 없음.
@@ -97,4 +98,5 @@ DesktopPet/
 - 다중 펫(여러 캐릭터 동시 실행) 지원 여부는 v1 이후로 보류.
 - 트레이 우클릭 메뉴의 "설정" 항목과 실제 설정 화면은 아직 미구현 — 별도 기능으로 착수 예정.
 - 트레이 아이콘은 임시 시스템 아이콘(`SystemIcons.Application`) 사용 중 — 실제 펫 브랜드 아이콘(.ico)으로 교체 필요.
-- **블로커**: 원본 캐릭터 이미지가 아직 없음 (AI로 제작 예정, 진행 중). `ArtSource/default/reference.png`가 나와야 `DESKTOP_PET_ASSET_GUIDE.md`의 제작 순서(대표 자세 → 연속 프레임)를 시작할 수 있다.
+- **해소됨**: AI로 제작한 6개 상태(idle/walk/rest/sleep/react/drag) 최종 스프라이트와 `character.json`이 `Assets/Pets/default/`에 있다. 크기·프레임 수·투명 배경·프레임 간 기준점 정렬 확인됨. `allowMirror: true`는 확인 없이 가정한 값 — 캐릭터가 좌우 비대칭 무늬가 없어 보여서 반전 가능하다고 판단했으나 틀리면 바꿔야 한다.
+- **다음 블로커**: `PetAssetLoader`(character.json 검증 + PNG 로드/캐시)와 `PetAnimationPlayer`(프레임 재생)가 아직 없어서, 이미지가 있어도 앱은 여전히 자리표시자 `Ellipse`를 사용한다.

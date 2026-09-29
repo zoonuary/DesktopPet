@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "default",
+  "frameSizePx": { "width": 256, "height": 256 },
+  "anchorPx": { "x": 128, "y": 232 },
+  "defaultFacing": "right",
+  "allowMirror": true,
+  "clips": {
+    "idle": { "file": "idle.png", "frameCount": 4, "frameDurationMs": 250, "loop": true },
+    "walk": { "file": "walk.png", "frameCount": 6, "frameDurationMs": 125, "loop": true },
+    "rest": { "file": "rest.png", "frameCount": 2, "frameDurationMs": 500, "loop": true },
+    "sleep": { "file": "sleep.png", "frameCount": 4, "frameDurationMs": 300, "loop": true },
+    "react": { "file": "react.png", "frameCount": 4, "frameDurationMs": 150, "loop": false },
+    "drag": { "file": "drag.png", "frameCount": 1, "frameDurationMs": 100, "loop": true }
+  }
+}

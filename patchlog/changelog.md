@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-09-29
+
+- Added final AI-generated sprite assets for all six clips (idle 4f, walk 6f, rest 2f, sleep 4f, react 4f, drag 1f) to `Assets/Pets/default/`, plus `character.json` per the `DESKTOP_PET_ASSET_GUIDE.md` schema (frameSizePx 256x256, anchorPx (128,232), allowMirror true).
+- Verified programmatically: all frames are 256x256 with fully transparent corners (alpha=0), and per-frame foot-contact Y position is consistent across every clip (bounding box minY/maxY identical or near-identical in all frames).
+- Verified: `dotnet build` clean; confirmed all 6 PNGs + character.json + README.md copy to `bin/Debug/net10.0-windows/Assets/Pets/default/`.
+- No loader/animation code yet — `MainWindow` still renders the placeholder `Ellipse`. Next blocker is `PetAssetLoader` + `PetAnimationPlayer`.
+- Updated `patchlog/current/module-overview.md`: asset blocker resolved, new blocker is the loading/animation code; flagged `allowMirror: true` as an unverified assumption.
+
 ## 2026-09-22 (4)
 
 - Wired Stay/Focus/Normal mode switching into `TrayIconService`: constructor now takes an initial mode and a mode-selected callback, and the context menu shows "일반 모드"/"여기서 쉬기"/"집중 모드" as checked radio-style items above a separator and "종료".

@@ -20,4 +20,8 @@ drag.png     256x256  / 1프레임
 
 `ArtSource/default/`에서 제작·검수한 프레임을 위 규격대로 패키징한 뒤 이 폴더에 넣는다.
 
-현재 이 폴더에는 최종 파일이 없다. `PetAssetLoader` 및 관련 로딩 코드도 아직 구현되지 않았다.
+## 현재 상태
+
+AI로 제작한 6개 상태(idle/walk/rest/sleep/react/drag)의 최종 파일과 `character.json`이 이 폴더에 있다. 크기·프레임 수·투명 배경·프레임 간 기준점 정렬은 확인됨(발 접지 Y좌표가 프레임 전체에서 거의 동일).
+
+`PetAssetLoader` 및 관련 로딩 코드는 아직 구현되지 않아, 앱은 아직 이 파일들을 읽지 않는다. `MainWindow`는 여전히 자리표시자 `Ellipse`를 사용 중이다.
