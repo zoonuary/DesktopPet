@@ -1,6 +1,6 @@
 # DesktopPet Overview
 
-Last verified: 2026-09-30 (hidden from Alt+Tab via WS_EX_TOOLWINDOW)
+Last verified: 2026-09-30 (first CFG implementation: window position + mode persist across restarts)
 
 This document describes the current code state of `DesktopPet`.
 
@@ -31,6 +31,8 @@ DesktopPet/
     PetAssetDefinition.cs        PetClipDefinition / PetCharacterDefinition / PetSkin 데이터 레코드
     PetAssetLoader.cs            character.json 검증 + PNG 로드/캐시, 실패 시 예외
     PetAnimationPlayer.cs        경과 시간(ms) → 현재 프레임 인덱스
+  Services/
+    PetSettingsStore.cs          CFG 로드·검증·저장 (PetSettings, CaptureRegionSettings 포함)
   AssemblyInfo.cs
   .editorconfig                 네이밍/nullable 컨벤션
   DEV_GUIDELINES.md             개발 협업/코드 규칙
@@ -48,7 +50,7 @@ DesktopPet/
 ## Key Components
 
 - `App` (`App.xaml.cs`): WPF 기본 애플리케이션 진입점. 커스텀 로직 없음.
-- `MainWindow` (`MainWindow.xaml` / `.xaml.cs`): 160x160 크기(BEHAVIOR_SPEC 표시 캔버스 기본값), 테두리 없는(`WindowStyle=None`) 투명(`AllowsTransparency=True`, `Background=Transparent`) 항상 위(`Topmost=True`) 창. 작업표시줄에 표시되지 않음(`ShowInTaskbar=False`). `SourceInitialized` 시점에 `user32.dll`의 `GetWindowLong`/`SetWindowLong`으로 확장 창 스타일에 `WS_EX_TOOLWINDOW`를 추가하고 `WS_EX_APPWINDOW`를 제거해 Alt+Tab 목록에도 나타나지 않는다 (`ShowInTaskbar=False`만으로는 Alt+Tab에서 안 빠지는 WPF의 알려진 동작). 생성자에서 `Assets/Pets/default`(exe 기준 `AppContext.BaseDirectory` 상대 경로)를 `PetAssetLoader.LoadSkin()`으로 로드 시도한다. 성공하면 `Image`(`x:Name="PetImage"`)를 보여주고 자리표시자 `Ellipse`(`x:Name="PetPlaceholder"`)는 숨긴다. 실패(예: `PetAssetLoadException`, `IOException`, `JsonException`)하면 `_skin`이 null로 남고 기존 색 기반 자리표시자로 폴백한다(Idle=CornflowerBlue, Walk=LimeGreen, Rest=Orange, Sleep=Gray, Drag=MediumPurple). `Window.ContextMenu`에 WPF 기본 `ContextMenu`(일반 모드/여기서 쉬기/집중 모드 체크 항목 + 구분선 + 종료)가 있어 펫 위에서 우클릭하면 바로 뜬다(투명 영역도 `Background=Transparent`라 히트테스트됨, 별도 이벤트 연결 불필요). `Window_MouseLeftButtonDown`에서 `_behavior.EnterDrag()` 후 `DragMove()`를 호출하고, 끝나면 `_behavior.ExitDrag()`로 모드 기본 상태로 복귀하며 그때마다 `RefreshVisual()`로 즉시 반영한다. `Loaded` 시점에 창 가로 위치를 현재 모니터 작업 영역 중앙으로 명시적으로 설정하고(스킨이 있으면 기준점 비율로, 없으면 창 바닥 기준으로 `Top` 계산), `DispatcherTimer`(16ms)를 시작한다. `GetCurrentWorkArea()`로 작업 영역을 구한다 (아래 "해결된 이슈" 참고). `ApplyModeSelection(PetMode)`가 모드 변경의 단일 진입점으로, `_behavior.SetMode()` + `RefreshVisual()` + 펫 메뉴 체크 갱신(`UpdateModeMenuChecks()`) + 트레이 메뉴 체크 동기화(`_trayIcon.SyncMode()`)를 한 번에 처리한다.
+- `MainWindow` (`MainWindow.xaml` / `.xaml.cs`): 160x160 크기(BEHAVIOR_SPEC 표시 캔버스 기본값), 테두리 없는(`WindowStyle=None`) 투명(`AllowsTransparency=True`, `Background=Transparent`) 항상 위(`Topmost=True`) 창. 작업표시줄에 표시되지 않음(`ShowInTaskbar=False`). `SourceInitialized` 시점에 `user32.dll`의 `GetWindowLong`/`SetWindowLong`으로 확장 창 스타일에 `WS_EX_TOOLWINDOW`를 추가하고 `WS_EX_APPWINDOW`를 제거해 Alt+Tab 목록에도 나타나지 않는다 (`ShowInTaskbar=False`만으로는 Alt+Tab에서 안 빠지는 WPF의 알려진 동작). 생성자에서 `PetSettingsStore.Load()`로 CFG를 읽어 `_behavior.SetMode()`에 반영한다. `Assets/Pets/default`(exe 기준 `AppContext.BaseDirectory` 상대 경로)를 `PetAssetLoader.LoadSkin()`으로 로드 시도한다. 성공하면 `Image`(`x:Name="PetImage"`)를 보여주고 자리표시자 `Ellipse`(`x:Name="PetPlaceholder"`)는 숨긴다. 실패(예: `PetAssetLoadException`, `IOException`, `JsonException`)하면 `_skin`이 null로 남고 기존 색 기반 자리표시자로 폴백한다(Idle=CornflowerBlue, Walk=LimeGreen, Rest=Orange, Sleep=Gray, Drag=MediumPurple). `Window.ContextMenu`에 WPF 기본 `ContextMenu`(일반 모드/여기서 쉬기/집중 모드 체크 항목 + 구분선 + 종료)가 있어 펫 위에서 우클릭하면 바로 뜬다(투명 영역도 `Background=Transparent`라 히트테스트됨, 별도 이벤트 연결 불필요). `Window_MouseLeftButtonDown`에서 `_behavior.EnterDrag()` 후 `DragMove()`를 호출하고, 끝나면 `_behavior.ExitDrag()`로 모드 기본 상태로 복귀하며 그때마다 `RefreshVisual()`로 즉시 반영한다. `Loaded` 시점에 CFG에 저장된 `WindowLeft`/`WindowTop`이 있고 `IsPositionOnScreen()`(가상 화면 전체 범위 안인지 대략 검사, 모니터별 정밀 DPI 변환은 안 함)을 통과하면 그 위치로 복원하고, 아니면 기존처럼 현재 모니터 작업 영역 중앙/바닥에 배치한다. `DispatcherTimer`(16ms)를 시작한다. `GetCurrentWorkArea()`로 작업 영역을 구한다 (아래 "해결된 이슈" 참고). `ApplyModeSelection(PetMode)`가 모드 변경의 단일 진입점으로, `_behavior.SetMode()` + `RefreshVisual()` + 펫 메뉴 체크 갱신(`UpdateModeMenuChecks()`) + 트레이 메뉴 체크 동기화(`_trayIcon.SyncMode()`) + CFG 저장(`_settings.Mode` 갱신 후 `_settingsStore.Save()`)을 한 번에 처리한다. 드래그가 끝나면(`Window_MouseLeftButtonDown`의 `finally`) 현재 `Left`/`Top`을 CFG에 저장한다.
 - `PetWanderMovement` (`PetWanderMovement.cs`): 주어진 방향(`directionX`)으로 다음 X좌표를 계산하고 경계 도달 여부만 보고하는 순수 로직 클래스. 방향을 자체적으로 반전하지 않는다 — 방향 소유권은 `PetBehaviorController.Facing`에 있다. 초당 60 DIP 속도.
 - `Behavior.PetState` (`Behavior/PetState.cs`): `PetStateId`(Idle/Walk/Rest/Sleep/React/Drag), `PetFacing`(Left/Right), `PetMode`(Normal/Stay/Focus) enum. React는 아직 미사용.
 - `Behavior.PetBehaviorController` (`Behavior/PetBehaviorController.cs`): 현재 상태·방향·모드와 남은 지속 시간을 소유. `Tick(elapsedSeconds, nearLeftEdge, nearRightEdge)`로 지속 시간을 소모하고 만료 시 `DESKTOP_PET_BEHAVIOR_SPEC.md`의 확률 규칙(Idle→Walk 35%/Rest 65%, Rest→Idle 75%/Sleep 25%)에 따라 다음 상태로 전환한다. `nearLeftEdge`/`nearRightEdge`는 WPF 타입이 아닌 평범한 bool로, Walk 진입 시 방향 선택(`ChooseWalkFacing`)에 쓰인다 — 경계 근처면 안쪽 방향을 강제 선택하고, 아니면 랜덤 선택한다(BEHAVIOR_SPEC "방향은 Walk 진입 시 결정... 경계에 있다면 안쪽을 선택"). `NotifyBoundaryHit()`로 Walk 중 경계 도달을 알리면 Idle로 전환. `EnterDrag()`/`ExitDrag()`로 드래그 상태 진입/종료(종료 시 현재 모드의 기본 상태로 복귀)를 처리. `SetMode()`로 Normal/Stay/Focus 전환(Stay→Rest 유지, Focus→Sleep 유지). View나 WPF 타입을 알지 못하는 순수 로직.
@@ -56,6 +58,7 @@ DesktopPet/
 - `Animation.PetAssetDefinition.cs`: `PetClipDefinition`(File/FrameCount/FrameDurationMs/Loop), `PetCharacterDefinition`(스키마 버전·id·프레임 크기·기준점·기본 방향·`AllowMirror`·클립 사전), `PetSkin`(`PetCharacterDefinition` + 클립별 로드된 `BitmapSource`) 레코드.
 - `Animation.PetAssetLoader` (`Animation/PetAssetLoader.cs`): `LoadSkin(skinDirectory)`가 `character.json`을 파싱·검증(스키마 버전 1, 6개 필수 클립 존재, 스킨 폴더 밖 경로 거부, 프레임 이미지 실제 크기가 `frameCount × frameSizePx`와 일치)한 뒤 각 클립 PNG를 `BitmapImage`(`CacheOption=OnLoad` + `Freeze()`)로 한 번만 로드해 `PetSkin`으로 반환한다. 검증 실패 시 `PetAssetLoadException`을 던진다.
 - `Animation.PetAnimationPlayer` (`Animation/PetAnimationPlayer.cs`): `SetClip(name, clip)`으로 현재 클립을 지정(클립이 바뀔 때만 프레임을 0으로 리셋), `Tick(elapsedMs)`로 경과 시간을 누적해 `FrameDurationMs`마다 `FrameIndex`를 진행시키고 마지막 프레임에서 `Loop` 여부에 따라 되감거나 멈춘다. React처럼 1회성 클립의 완료를 상위에 알리는 기능은 아직 없다(React가 아직 입력에 연결되지 않아 불필요).
+- `Services.PetSettings` / `PetSettingsStore` (`Services/PetSettingsStore.cs`): `DESKTOP_PET_BEHAVIOR_SPEC.md` 6장의 CFG 계약을 따르는 첫 구현. `PetSettings`는 `SchemaVersion`(1), `CharacterId`(default), `DisplaySizeDip`(160, 80~240 검증), `AlwaysOnTop`(true), `Mode`(문자열, Normal/Stay/Focus 외 값은 Normal로 교정), `WindowLeft`/`WindowTop`(nullable), `CaptureRegion`(nullable — 아직 아무도 채우지 않음, 화면 인식 기능에서 사용 예정)을 담는다. `PetSettingsStore.Load()`는 `%AppData%\DesktopPet\settings.json`이 없거나 파싱 실패/스키마 버전 불일치면 손상 파일을 건드리지 않고 기본값을 메모리로만 반환한다. `Save()`는 `.tmp` 파일에 쓴 뒤 `File.Move(overwrite: true)`로 교체하고, `lock`으로 동시 저장만 직렬화한다(변경 자체가 드문 이산 이벤트라 "변경을 모아 순차 저장"까지는 구현하지 않음 — `patchlog/decisions/2026-09-30-cfg-scope.md` 참고).
 
 ## Current Execution Flow
 
@@ -65,7 +68,8 @@ DesktopPet/
 4. `DispatcherTimer` Tick마다: 경과 시간을 최대 100ms로 clamp → `_behavior.Tick()`으로 상태 전환 처리 → 상태가 `Walk`이면 `PetWanderMovement.GetNextLeft()`로 위치 계산 후 `Left` 반영, 경계 도달 시 `_behavior.NotifyBoundaryHit()` 호출 → 스킨이 있으면 `UpdateAnimationFrame()`으로 현재 상태에 대응하는 클립을 재생(프레임/클립이 바뀔 때만 `CroppedBitmap`을 새로 만들어 `Image.Source`에 반영, `AllowMirror`면 `Facing`에 따라 `ScaleTransform.ScaleX`로 좌우 반전), 스킨이 없으면 상태가 바뀌었을 때만 자리표시자 색 갱신. 타이머 우선순위는 `DispatcherPriority.Normal`이다 (아래 "해결된 이슈" 참고).
 5. 사용자가 펫 영역에서 좌클릭하면 `_behavior.EnterDrag()` → `RefreshVisual()`로 즉시 Drag 클립(또는 보라색)이 반영되고 자동 배회/행동 틱이 멈춘 채 `DragMove()`로 창이 마우스를 따라 이동한다. 드래그가 끝나면 `_behavior.ExitDrag()` → `RefreshVisual()`로 현재 모드의 기본 상태(Normal→Idle 등)로 즉시 복귀한다.
 6. 트레이 아이콘 우클릭 메뉴 또는 펫 자체를 우클릭한 메뉴(`Window.ContextMenu`)에서 "일반 모드"/"여기서 쉬기"/"집중 모드"를 누르면 두 경로 모두 `ApplyModeSelection(mode)`로 모여, 클릭 즉시 상태 반영 + 양쪽 메뉴의 체크 표시 동기화가 함께 일어난다 (타이머 틱을 기다리지 않음). 어느 메뉴에서든 "종료"를 누르면 `System.Windows.Application.Current.Shutdown()`이 호출되어 앱이 종료된다. `MainWindow.Closed`에서 배회 타이머 정지 + 트레이 아이콘 해제.
-7. React 상태(클릭 반응)는 아직 어떤 입력도 연결되어 있지 않아 저절로 진입하지 않는다. 설정 메뉴/화면, CFG 저장/복원은 아직 미구현.
+7. 앱 시작 시 `PetSettingsStore.Load()`로 저장된 모드/위치를 복원하고, 모드 변경(양쪽 메뉴 공통) 및 드래그 종료 시마다 CFG에 저장한다. `DisplaySizeDip`/`AlwaysOnTop`/`CharacterId`/`CaptureRegion`은 스키마엔 있지만 아직 바꿀 UI가 없어 기본값만 저장된다.
+8. React 상태(클릭 반응)는 아직 어떤 입력도 연결되어 있지 않아 저절로 진입하지 않는다. 설정 메뉴/화면은 아직 미구현.
 
 ### 해결된 이슈
 
@@ -91,7 +95,8 @@ DesktopPet/
 - 펫 자체를 우클릭해도 트레이와 동일한 모드 전환/종료 메뉴가 뜨는 것을 확인함 — 트레이 아이콘을 찾지 않아도 종료 가능. 양쪽 메뉴의 체크 상태가 서로 맞는 것도 확인함.
 - Alt+Tab 목록에 DesktopPet이 나타나지 않는 것을 사용자가 직접 확인함.
 - React 상태는 정의는 있지만 아직 어떤 사용자 입력도 연결되어 있지 않아 실제로 진입하지 않는다 — 클릭은 여전히 드래그로만 처리된다. 짧은 클릭과 드래그를 구분하는 로직(BEHAVIOR_SPEC 3장 "클릭과 드래그")도 아직 없다.
-- 설정 메뉴/화면, 설정 저장(CFG)은 아직 미구현 — 재실행하면 항상 초기 상태(Normal 모드, 작업 영역 하단)로 시작한다.
+- CFG로 창 위치와 모드가 재실행 후에도 유지되는 것을 사용자가 직접 확인함 (드래그 → 모드 변경 → 종료 → 재실행 → 위치·모드 유지). `%AppData%\DesktopPet\settings.json`에 저장됨.
+- 설정 메뉴/화면은 아직 미구현 — CFG 자체는 생겼지만 사용자가 직접 값을 편집할 UI는 없음(지금은 위치는 드래그로, 모드는 메뉴로만 바뀜).
 - 좁은 작업 영역에서 Walk 대신 Rest를 선택하는 규칙(BEHAVIOR_SPEC 2장)은 아직 미구현 — 현재는 화면 폭과 무관하게 확률대로 Walk를 선택할 수 있다.
 
 ## v1 Scope (decided)
@@ -107,7 +112,7 @@ DesktopPet/
 
 - 자동 업데이트 여부, 설치 프로그램 구체 도구(WiX/MSIX 등)는 실제 배포 단계에서 결정 예정.
 - 다중 펫(여러 캐릭터 동시 실행) 지원 여부는 v1 이후로 보류.
-- 트레이 우클릭 메뉴의 "설정" 항목과 실제 설정 화면은 아직 미구현 — 별도 기능으로 착수 예정.
+- 트레이 우클릭 메뉴의 "설정" 항목과 실제 설정 화면은 아직 미구현 — CFG(`PetSettingsStore`)는 이제 있으니 그 위에 UI만 얹으면 됨.
 - 트레이 아이콘은 임시 시스템 아이콘(`SystemIcons.Application`) 사용 중 — 실제 펫 브랜드 아이콘(.ico)으로 교체 필요.
 - `allowMirror: true`는 확인 없이 가정한 값 — 캐릭터가 좌우 비대칭 무늬가 없어 보여서 반전 가능하다고 판단했으나 틀리면 바꿔야 한다.
 - React 클릭 반응(짧은 클릭과 드래그 구분 포함)은 다음 후보 작업.

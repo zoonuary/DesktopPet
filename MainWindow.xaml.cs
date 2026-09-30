@@ -14,6 +14,7 @@ using System.Windows.Shapes;
 using System.Windows.Threading;
 using DesktopPet.Animation;
 using DesktopPet.Behavior;
+using DesktopPet.Services;
 
 namespace DesktopPet;
 
@@ -34,6 +35,8 @@ public partial class MainWindow : Window
     private readonly PetWanderMovement _wander = new();
     private readonly PetBehaviorController _behavior = new();
     private readonly PetAnimationPlayer _animation = new();
+    private readonly PetSettingsStore _settingsStore = new();
+    private readonly PetSettings _settings;
     private readonly DispatcherTimer _wanderTimer;
     private readonly TrayIconService _trayIcon;
     private PetSkin? _skin;
@@ -48,6 +51,9 @@ public partial class MainWindow : Window
 
         LoadSkin();
 
+        _settings = _settingsStore.Load();
+        _behavior.SetMode(ParseMode(_settings.Mode));
+
         _wanderTimer = new DispatcherTimer(DispatcherPriority.Normal)
         {
             Interval = TimeSpan.FromMilliseconds(16)
@@ -60,6 +66,7 @@ public partial class MainWindow : Window
             () => System.Windows.Application.Current.Shutdown());
 
         UpdateModeMenuChecks();
+        RefreshVisual();
 
         SourceInitialized += MainWindow_SourceInitialized;
         Loaded += MainWindow_Loaded;
@@ -72,7 +79,12 @@ public partial class MainWindow : Window
         RefreshVisual();
         UpdateModeMenuChecks();
         _trayIcon.SyncMode(mode);
+
+        _settings.Mode = mode.ToString();
+        _settingsStore.Save(_settings);
     }
+
+    private static PetMode ParseMode(string mode) => Enum.TryParse(mode, out PetMode parsed) ? parsed : PetMode.Normal;
 
     private void UpdateModeMenuChecks()
     {
@@ -122,21 +134,44 @@ public partial class MainWindow : Window
 
     private void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
-        Rect workArea = GetCurrentWorkArea();
-        Left = workArea.Left + ((workArea.Width - Width) / 2.0);
-
-        if (_skin is not null)
+        if (_settings.WindowLeft is double savedLeft && _settings.WindowTop is double savedTop && IsPositionOnScreen(savedLeft, savedTop))
         {
-            double anchorRatio = (double)_skin.Definition.AnchorYPx / _skin.Definition.FrameHeightPx;
-            Top = workArea.Bottom - (anchorRatio * Height);
+            Left = savedLeft;
+            Top = savedTop;
         }
         else
         {
-            Top = workArea.Bottom - Height;
+            Rect workArea = GetCurrentWorkArea();
+            Left = workArea.Left + ((workArea.Width - Width) / 2.0);
+
+            if (_skin is not null)
+            {
+                double anchorRatio = (double)_skin.Definition.AnchorYPx / _skin.Definition.FrameHeightPx;
+                Top = workArea.Bottom - (anchorRatio * Height);
+            }
+            else
+            {
+                Top = workArea.Bottom - Height;
+            }
         }
 
         _lastTick = DateTime.UtcNow;
         _wanderTimer.Start();
+    }
+
+    // 정밀한 모니터별 DPI 변환 대신, 전체 가상 화면 범위 안에 있는지만 대략 검사한다.
+    // 모니터가 사라졌거나 좌표가 화면 밖이면 false를 돌려줘 기본 배치로 복구시킨다.
+    private bool IsPositionOnScreen(double left, double top)
+    {
+        DpiScale dpi = VisualTreeHelper.GetDpi(this);
+        System.Drawing.Rectangle virtualScreen = System.Windows.Forms.SystemInformation.VirtualScreen;
+
+        double vLeft = virtualScreen.Left / dpi.DpiScaleX;
+        double vTop = virtualScreen.Top / dpi.DpiScaleY;
+        double vRight = virtualScreen.Right / dpi.DpiScaleX;
+        double vBottom = virtualScreen.Bottom / dpi.DpiScaleY;
+
+        return left >= vLeft && left + Width <= vRight && top >= vTop && top + Height <= vBottom;
     }
 
     private void WanderTimer_Tick(object? sender, EventArgs e)
@@ -285,6 +320,10 @@ public partial class MainWindow : Window
             _isDragging = false;
             _behavior.ExitDrag();
             RefreshVisual();
+
+            _settings.WindowLeft = Left;
+            _settings.WindowTop = Top;
+            _settingsStore.Save(_settings);
         }
     }
 }

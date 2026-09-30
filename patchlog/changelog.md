@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-09-30 (3)
+
+- Added `Services/PetSettingsStore.cs`, the first CFG implementation per `DESKTOP_PET_BEHAVIOR_SPEC.md` §6: `PetSettings` (SchemaVersion, CharacterId, DisplaySizeDip, AlwaysOnTop, Mode, WindowLeft/Top, CaptureRegion) persisted to `%AppData%\DesktopPet\settings.json` via temp-file-then-atomic-move, with save calls serialized by a lock. Missing/corrupt/version-mismatched files fall back to in-memory defaults without touching the file. See `patchlog/decisions/2026-09-30-cfg-scope.md` for scope choices (full schema now, only Mode/position wired yet; no batched-save queue; approximate multi-monitor position validation).
+- Wired `MainWindow` to load settings at startup (restores `_behavior.Mode`), save on every mode change (`ApplyModeSelection`) and on drag end, and restore the last window position on `Loaded` if it's still within the virtual screen bounds (`IsPositionOnScreen`), falling back to the existing centered/bottom placement otherwise.
+- Verified: `dotnet build` clean; user confirmed dragging to a new position + switching to Stay mode + exiting + relaunching restores both.
+- Updated `patchlog/current/module-overview.md` for the new Services layer and CFG-aware startup/shutdown flow.
+
 ## 2026-09-30 (2)
 
 - Hid the pet window from Alt+Tab by setting `WS_EX_TOOLWINDOW` (and clearing `WS_EX_APPWINDOW`) on the extended window style via `user32.dll` P/Invoke in a new `MainWindow_SourceInitialized` handler. `ShowInTaskbar=False` alone doesn't remove a WPF window from the Alt+Tab switcher — this is the standard fix.
