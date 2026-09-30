@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-09-30 (2)
+
+- Hid the pet window from Alt+Tab by setting `WS_EX_TOOLWINDOW` (and clearing `WS_EX_APPWINDOW`) on the extended window style via `user32.dll` P/Invoke in a new `MainWindow_SourceInitialized` handler. `ShowInTaskbar=False` alone doesn't remove a WPF window from the Alt+Tab switcher — this is the standard fix.
+- Verified: `dotnet build` clean; user confirmed the app no longer appears in Alt+Tab and both context menus still work normally.
+- Updated `patchlog/current/module-overview.md` with the new SourceInitialized behavior.
+
 ## 2026-09-30
 
 - Added a WPF `Window.ContextMenu` directly on `MainWindow` (일반 모드/여기서 쉬기/집중 모드 + 구분선 + 종료), so the pet can be closed or its mode changed by right-clicking it directly instead of hunting for the tray icon.

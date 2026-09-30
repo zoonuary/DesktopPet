@@ -1,6 +1,6 @@
 # DesktopPet Overview
 
-Last verified: 2026-09-30 (right-click context menu added directly on the pet window)
+Last verified: 2026-09-30 (hidden from Alt+Tab via WS_EX_TOOLWINDOW)
 
 This document describes the current code state of `DesktopPet`.
 
@@ -48,7 +48,7 @@ DesktopPet/
 ## Key Components
 
 - `App` (`App.xaml.cs`): WPF 기본 애플리케이션 진입점. 커스텀 로직 없음.
-- `MainWindow` (`MainWindow.xaml` / `.xaml.cs`): 160x160 크기(BEHAVIOR_SPEC 표시 캔버스 기본값), 테두리 없는(`WindowStyle=None`) 투명(`AllowsTransparency=True`, `Background=Transparent`) 항상 위(`Topmost=True`) 창. 작업표시줄에 표시되지 않음(`ShowInTaskbar=False`). 생성자에서 `Assets/Pets/default`(exe 기준 `AppContext.BaseDirectory` 상대 경로)를 `PetAssetLoader.LoadSkin()`으로 로드 시도한다. 성공하면 `Image`(`x:Name="PetImage"`)를 보여주고 자리표시자 `Ellipse`(`x:Name="PetPlaceholder"`)는 숨긴다. 실패(예: `PetAssetLoadException`, `IOException`, `JsonException`)하면 `_skin`이 null로 남고 기존 색 기반 자리표시자로 폴백한다(Idle=CornflowerBlue, Walk=LimeGreen, Rest=Orange, Sleep=Gray, Drag=MediumPurple). `Window.ContextMenu`에 WPF 기본 `ContextMenu`(일반 모드/여기서 쉬기/집중 모드 체크 항목 + 구분선 + 종료)가 있어 펫 위에서 우클릭하면 바로 뜬다(투명 영역도 `Background=Transparent`라 히트테스트됨, 별도 이벤트 연결 불필요). `Window_MouseLeftButtonDown`에서 `_behavior.EnterDrag()` 후 `DragMove()`를 호출하고, 끝나면 `_behavior.ExitDrag()`로 모드 기본 상태로 복귀하며 그때마다 `RefreshVisual()`로 즉시 반영한다. `Loaded` 시점에 창 가로 위치를 현재 모니터 작업 영역 중앙으로 명시적으로 설정하고(스킨이 있으면 기준점 비율로, 없으면 창 바닥 기준으로 `Top` 계산), `DispatcherTimer`(16ms)를 시작한다. `GetCurrentWorkArea()`로 작업 영역을 구한다 (아래 "해결된 이슈" 참고). `ApplyModeSelection(PetMode)`가 모드 변경의 단일 진입점으로, `_behavior.SetMode()` + `RefreshVisual()` + 펫 메뉴 체크 갱신(`UpdateModeMenuChecks()`) + 트레이 메뉴 체크 동기화(`_trayIcon.SyncMode()`)를 한 번에 처리한다.
+- `MainWindow` (`MainWindow.xaml` / `.xaml.cs`): 160x160 크기(BEHAVIOR_SPEC 표시 캔버스 기본값), 테두리 없는(`WindowStyle=None`) 투명(`AllowsTransparency=True`, `Background=Transparent`) 항상 위(`Topmost=True`) 창. 작업표시줄에 표시되지 않음(`ShowInTaskbar=False`). `SourceInitialized` 시점에 `user32.dll`의 `GetWindowLong`/`SetWindowLong`으로 확장 창 스타일에 `WS_EX_TOOLWINDOW`를 추가하고 `WS_EX_APPWINDOW`를 제거해 Alt+Tab 목록에도 나타나지 않는다 (`ShowInTaskbar=False`만으로는 Alt+Tab에서 안 빠지는 WPF의 알려진 동작). 생성자에서 `Assets/Pets/default`(exe 기준 `AppContext.BaseDirectory` 상대 경로)를 `PetAssetLoader.LoadSkin()`으로 로드 시도한다. 성공하면 `Image`(`x:Name="PetImage"`)를 보여주고 자리표시자 `Ellipse`(`x:Name="PetPlaceholder"`)는 숨긴다. 실패(예: `PetAssetLoadException`, `IOException`, `JsonException`)하면 `_skin`이 null로 남고 기존 색 기반 자리표시자로 폴백한다(Idle=CornflowerBlue, Walk=LimeGreen, Rest=Orange, Sleep=Gray, Drag=MediumPurple). `Window.ContextMenu`에 WPF 기본 `ContextMenu`(일반 모드/여기서 쉬기/집중 모드 체크 항목 + 구분선 + 종료)가 있어 펫 위에서 우클릭하면 바로 뜬다(투명 영역도 `Background=Transparent`라 히트테스트됨, 별도 이벤트 연결 불필요). `Window_MouseLeftButtonDown`에서 `_behavior.EnterDrag()` 후 `DragMove()`를 호출하고, 끝나면 `_behavior.ExitDrag()`로 모드 기본 상태로 복귀하며 그때마다 `RefreshVisual()`로 즉시 반영한다. `Loaded` 시점에 창 가로 위치를 현재 모니터 작업 영역 중앙으로 명시적으로 설정하고(스킨이 있으면 기준점 비율로, 없으면 창 바닥 기준으로 `Top` 계산), `DispatcherTimer`(16ms)를 시작한다. `GetCurrentWorkArea()`로 작업 영역을 구한다 (아래 "해결된 이슈" 참고). `ApplyModeSelection(PetMode)`가 모드 변경의 단일 진입점으로, `_behavior.SetMode()` + `RefreshVisual()` + 펫 메뉴 체크 갱신(`UpdateModeMenuChecks()`) + 트레이 메뉴 체크 동기화(`_trayIcon.SyncMode()`)를 한 번에 처리한다.
 - `PetWanderMovement` (`PetWanderMovement.cs`): 주어진 방향(`directionX`)으로 다음 X좌표를 계산하고 경계 도달 여부만 보고하는 순수 로직 클래스. 방향을 자체적으로 반전하지 않는다 — 방향 소유권은 `PetBehaviorController.Facing`에 있다. 초당 60 DIP 속도.
 - `Behavior.PetState` (`Behavior/PetState.cs`): `PetStateId`(Idle/Walk/Rest/Sleep/React/Drag), `PetFacing`(Left/Right), `PetMode`(Normal/Stay/Focus) enum. React는 아직 미사용.
 - `Behavior.PetBehaviorController` (`Behavior/PetBehaviorController.cs`): 현재 상태·방향·모드와 남은 지속 시간을 소유. `Tick(elapsedSeconds, nearLeftEdge, nearRightEdge)`로 지속 시간을 소모하고 만료 시 `DESKTOP_PET_BEHAVIOR_SPEC.md`의 확률 규칙(Idle→Walk 35%/Rest 65%, Rest→Idle 75%/Sleep 25%)에 따라 다음 상태로 전환한다. `nearLeftEdge`/`nearRightEdge`는 WPF 타입이 아닌 평범한 bool로, Walk 진입 시 방향 선택(`ChooseWalkFacing`)에 쓰인다 — 경계 근처면 안쪽 방향을 강제 선택하고, 아니면 랜덤 선택한다(BEHAVIOR_SPEC "방향은 Walk 진입 시 결정... 경계에 있다면 안쪽을 선택"). `NotifyBoundaryHit()`로 Walk 중 경계 도달을 알리면 Idle로 전환. `EnterDrag()`/`ExitDrag()`로 드래그 상태 진입/종료(종료 시 현재 모드의 기본 상태로 복귀)를 처리. `SetMode()`로 Normal/Stay/Focus 전환(Stay→Rest 유지, Focus→Sleep 유지). View나 WPF 타입을 알지 못하는 순수 로직.
@@ -89,6 +89,7 @@ DesktopPet/
 - 실제 스프라이트 로딩·재생(idle/walk/rest/sleep/drag 클립, 좌우 반전 포함)이 구현되어 사용자가 직접 실행해 확인함. 로드 실패 시 색 기반 자리표시자로 폴백하는 경로는 코드상으로만 존재하고 실제로 실패시켜 검증하지는 않았다(예: character.json 삭제/손상 시나리오 미검증).
 - Walk가 경계 근처에서 시작해도 안쪽 방향으로 정상적으로 몇 초간 이동하는 것을 확인함. 듀얼 모니터 환경에서 펫을 두 번째 모니터로 드래그한 뒤에도 그 모니터 안에서 정상 동작하는 것을 사용자가 직접 확인함.
 - 펫 자체를 우클릭해도 트레이와 동일한 모드 전환/종료 메뉴가 뜨는 것을 확인함 — 트레이 아이콘을 찾지 않아도 종료 가능. 양쪽 메뉴의 체크 상태가 서로 맞는 것도 확인함.
+- Alt+Tab 목록에 DesktopPet이 나타나지 않는 것을 사용자가 직접 확인함.
 - React 상태는 정의는 있지만 아직 어떤 사용자 입력도 연결되어 있지 않아 실제로 진입하지 않는다 — 클릭은 여전히 드래그로만 처리된다. 짧은 클릭과 드래그를 구분하는 로직(BEHAVIOR_SPEC 3장 "클릭과 드래그")도 아직 없다.
 - 설정 메뉴/화면, 설정 저장(CFG)은 아직 미구현 — 재실행하면 항상 초기 상태(Normal 모드, 작업 영역 하단)로 시작한다.
 - 좁은 작업 영역에서 Walk 대신 Rest를 선택하는 규칙(BEHAVIOR_SPEC 2장)은 아직 미구현 — 현재는 화면 폭과 무관하게 확률대로 Walk를 선택할 수 있다.

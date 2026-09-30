@@ -1,4 +1,5 @@
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Windows;
@@ -19,6 +20,16 @@ namespace DesktopPet;
 public partial class MainWindow : Window
 {
     private const double MaxElapsedSeconds = 0.1;
+
+    private const int GWL_EXSTYLE = -20;
+    private const int WS_EX_TOOLWINDOW = 0x00000080;
+    private const int WS_EX_APPWINDOW = 0x00040000;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+    [DllImport("user32.dll")]
+    private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
 
     private readonly PetWanderMovement _wander = new();
     private readonly PetBehaviorController _behavior = new();
@@ -50,6 +61,7 @@ public partial class MainWindow : Window
 
         UpdateModeMenuChecks();
 
+        SourceInitialized += MainWindow_SourceInitialized;
         Loaded += MainWindow_Loaded;
         Closed += MainWindow_Closed;
     }
@@ -76,6 +88,15 @@ public partial class MainWindow : Window
     private void FocusModeMenuItem_Click(object sender, RoutedEventArgs e) => ApplyModeSelection(PetMode.Focus);
 
     private void ExitMenuItem_Click(object sender, RoutedEventArgs e) => System.Windows.Application.Current.Shutdown();
+
+    private void MainWindow_SourceInitialized(object? sender, EventArgs e)
+    {
+        IntPtr hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        int exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
+        exStyle |= WS_EX_TOOLWINDOW;
+        exStyle &= ~WS_EX_APPWINDOW;
+        SetWindowLong(hwnd, GWL_EXSTYLE, exStyle);
+    }
 
     private void LoadSkin()
     {
