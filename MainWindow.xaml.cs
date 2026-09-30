@@ -38,12 +38,15 @@ public partial class MainWindow : Window
     private readonly PetSettingsStore _settingsStore = new();
     private readonly PetSettings _settings;
     private readonly DispatcherTimer _wanderTimer;
+    private readonly DispatcherTimer _ocrTimer;
     private readonly TrayIconService _trayIcon;
+    private readonly SpeechBubbleWindow _bubble = new();
     private PetSkin? _skin;
     private string? _currentClipName;
     private int _currentFrameIndex = -1;
     private DateTime _lastTick;
     private bool _isDragging;
+    private bool _ocrInProgress;
 
     public MainWindow()
     {
@@ -59,6 +62,13 @@ public partial class MainWindow : Window
             Interval = TimeSpan.FromMilliseconds(16)
         };
         _wanderTimer.Tick += WanderTimer_Tick;
+
+        _ocrTimer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromSeconds(1)
+        };
+        _ocrTimer.Tick += OcrTimer_Tick;
+        _ocrTimer.Start();
 
         _trayIcon = new TrayIconService(
             _behavior.Mode,
@@ -144,7 +154,40 @@ public partial class MainWindow : Window
     private void MainWindow_Closed(object? sender, EventArgs e)
     {
         _wanderTimer.Stop();
+        _ocrTimer.Stop();
+        _bubble.Close();
         _trayIcon.Dispose();
+    }
+
+    private async void OcrTimer_Tick(object? sender, EventArgs e)
+    {
+        if (_ocrInProgress || _settings.CaptureRegion is not CaptureRegionSettings region)
+        {
+            return;
+        }
+
+        _ocrInProgress = true;
+        try
+        {
+            string? text = await ScreenOcrService.RecognizeRegionAsync(region);
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                _bubble.HideBubble();
+            }
+            else
+            {
+                _bubble.ShowText(text, Left, Top, Width);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"OCR failed: {ex.Message}");
+            _bubble.HideBubble();
+        }
+        finally
+        {
+            _ocrInProgress = false;
+        }
     }
 
     private void MainWindow_Loaded(object sender, RoutedEventArgs e)

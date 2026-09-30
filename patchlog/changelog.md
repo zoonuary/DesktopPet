@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-09-30 (5)
+
+- Retargeted `DesktopPet.csproj` from `net10.0-windows` to `net10.0-windows10.0.19041.0` to unlock WinRT API projections (`Windows.Media.Ocr`). No change to existing WPF/WinForms behavior; verified with a build+run before adding any OCR code.
+- Added `Services/ScreenOcrService.cs`: `RecognizeRegionAsync(CaptureRegionSettings)` captures the region off the UI thread (`Task.Run` + `Graphics.CopyFromScreen`), encodes to PNG, feeds it into `Windows.Media.Ocr` via a manually-populated `InMemoryRandomAccessStream`/`DataWriter` (avoids relying on the `AsRandomAccessStream()` extension method), and returns recognized text or null if no OCR engine/language pack is available.
+- Added `SpeechBubbleWindow` (XAML + code-behind): borderless, transparent, `IsHitTestVisible=False` Topmost window showing recognized text in a rounded white bubble, positioned above the pet based on its current `Left`/`Top`/`Width`.
+- Wired a new 1-second `_ocrTimer` in `MainWindow`: polls `ScreenOcrService` when `CaptureRegion` is set (guarded by `_ocrInProgress` against overlapping calls), updates or hides the bubble based on the result. Stopped and bubble closed on `MainWindow.Closed`.
+- Verified: `dotnet build` clean at each step (TFM change, OCR service, wiring); app runs without crash. User confirmed the bubble appears and updates with recognized text within ~1s, but accuracy is low for small/complex-background text — no image preprocessing (upscaling, binarization) implemented yet, flagged as a follow-up in `patchlog/current/module-overview.md`.
+- Updated `patchlog/current/module-overview.md`: new Services/View entries, execution flow steps 9-10, TFM note, and the OCR accuracy caveat. Also fixed a stale line still referencing `%AppData%\DesktopPet\settings.json` from before the exe-adjacent CFG location change.
+
 ## 2026-09-30 (4)
 
 - Added `CaptureRegionOverlayWindow` (XAML + code-behind): a borderless, semi-transparent, Topmost window covering the full virtual screen (approximated to primary-monitor DPI for positioning; stored coordinates use `System.Windows.Forms.Cursor.Position` physical pixels, so they're accurate regardless of the visual approximation). Drag-to-select a rectangle, release to confirm (selections under 4px are ignored), Escape or right-click to cancel.
