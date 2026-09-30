@@ -20,6 +20,8 @@
             <MenuItem x:Name="StayModeMenuItem" Header="여기서 쉬기" IsCheckable="True" Click="StayModeMenuItem_Click"/>
             <MenuItem x:Name="FocusModeMenuItem" Header="집중 모드" IsCheckable="True" Click="FocusModeMenuItem_Click"/>
             <Separator/>
+            <MenuItem Header="캡처 범위 지정" Click="CaptureRegionMenuItem_Click"/>
+            <Separator/>
             <MenuItem Header="종료" Click="ExitMenuItem_Click"/>
         </ContextMenu>
     </Window.ContextMenu>

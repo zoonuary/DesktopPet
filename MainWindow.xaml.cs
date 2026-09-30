@@ -63,6 +63,7 @@ public partial class MainWindow : Window
         _trayIcon = new TrayIconService(
             _behavior.Mode,
             ApplyModeSelection,
+            ShowCaptureRegionOverlay,
             () => System.Windows.Application.Current.Shutdown());
 
         UpdateModeMenuChecks();
@@ -100,6 +101,20 @@ public partial class MainWindow : Window
     private void FocusModeMenuItem_Click(object sender, RoutedEventArgs e) => ApplyModeSelection(PetMode.Focus);
 
     private void ExitMenuItem_Click(object sender, RoutedEventArgs e) => System.Windows.Application.Current.Shutdown();
+
+    private void CaptureRegionMenuItem_Click(object sender, RoutedEventArgs e) => ShowCaptureRegionOverlay();
+
+    private void ShowCaptureRegionOverlay()
+    {
+        var overlay = new CaptureRegionOverlayWindow(OnCaptureRegionSelected);
+        overlay.Show();
+    }
+
+    private void OnCaptureRegionSelected(CaptureRegionSettings region)
+    {
+        _settings.CaptureRegion = region;
+        _settingsStore.Save(_settings);
+    }
 
     private void MainWindow_SourceInitialized(object? sender, EventArgs e)
     {

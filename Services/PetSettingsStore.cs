@@ -26,6 +26,10 @@ public sealed class CaptureRegionSettings
 // 첫 CFG 구현. DESKTOP_PET_BEHAVIOR_SPEC.md 6장의 계약을 따르되,
 // "변경을 모아 순차 저장"은 저장이 드문 이산 이벤트(드래그 종료, 모드 변경)에서만
 // 일어나는 지금 규모에는 과할 것 같아 lock으로 동시 저장만 직렬화한다.
+//
+// 설치 프로그램 없이 exe를 폴더째 복사/삭제하는 포터블 배포라, 삭제 시 흔적이
+// 안 남도록 %AppData%가 아니라 exe 옆에 저장한다. 나중에 Program Files처럼
+// 쓰기 권한이 없는 위치에 설치하는 정식 설치 프로그램을 만들면 재검토해야 한다.
 public sealed class PetSettingsStore
 {
     private readonly string _filePath;
@@ -33,9 +37,7 @@ public sealed class PetSettingsStore
 
     public PetSettingsStore()
     {
-        string dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "DesktopPet");
-        Directory.CreateDirectory(dir);
-        _filePath = Path.Combine(dir, "settings.json");
+        _filePath = Path.Combine(AppContext.BaseDirectory, "settings.json");
     }
 
     public PetSettings Load()

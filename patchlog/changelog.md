@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-09-30 (4)
+
+- Added `CaptureRegionOverlayWindow` (XAML + code-behind): a borderless, semi-transparent, Topmost window covering the full virtual screen (approximated to primary-monitor DPI for positioning; stored coordinates use `System.Windows.Forms.Cursor.Position` physical pixels, so they're accurate regardless of the visual approximation). Drag-to-select a rectangle, release to confirm (selections under 4px are ignored), Escape or right-click to cancel.
+- Added "캡처 범위 지정" to both the tray menu and the pet's context menu; selecting a region saves it to `PetSettings.CaptureRegion` via the existing `PetSettingsStore`. `TrayIconService`'s constructor signature changed to take an additional `onCaptureRegionRequested` callback.
+- Moved CFG storage from `%AppData%\DesktopPet\settings.json` to `<exe folder>\settings.json` (`AppContext.BaseDirectory`), per user request: this is a portable, installer-less app, and leaving files in `%AppData%` after the user deletes the folder was flagged as an unwanted untracked trace. Documented as a known trade-off to revisit if a real installer (which may place the exe in a non-writable location) gets built later.
+- Verified: `dotnet build` clean; user confirmed the overlay opens, drag-selection works, and it cancels via Escape/right-click; confirmed `settings.json` now appears next to the exe and not under `%AppData%`. Cleaned up the leftover `%AppData%\DesktopPet\` folder from the earlier design.
+- Updated `patchlog/current/module-overview.md` for the new overlay window, tray/pet menu changes, and the CFG location change.
+
 ## 2026-09-30 (3)
 
 - Added `Services/PetSettingsStore.cs`, the first CFG implementation per `DESKTOP_PET_BEHAVIOR_SPEC.md` §6: `PetSettings` (SchemaVersion, CharacterId, DisplaySizeDip, AlwaysOnTop, Mode, WindowLeft/Top, CaptureRegion) persisted to `%AppData%\DesktopPet\settings.json` via temp-file-then-atomic-move, with save calls serialized by a lock. Missing/corrupt/version-mismatched files fall back to in-memory defaults without touching the file. See `patchlog/decisions/2026-09-30-cfg-scope.md` for scope choices (full schema now, only Mode/position wired yet; no batched-save queue; approximate multi-monitor position validation).

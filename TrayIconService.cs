@@ -11,11 +11,14 @@ public sealed class TrayIconService : IDisposable
     private readonly ToolStripMenuItem _stayModeItem;
     private readonly ToolStripMenuItem _focusModeItem;
 
-    public TrayIconService(PetMode initialMode, Action<PetMode> onModeSelected, Action onExitRequested)
+    public TrayIconService(PetMode initialMode, Action<PetMode> onModeSelected, Action onCaptureRegionRequested, Action onExitRequested)
     {
         _normalModeItem = CreateModeItem("일반 모드", PetMode.Normal, onModeSelected);
         _stayModeItem = CreateModeItem("여기서 쉬기", PetMode.Stay, onModeSelected);
         _focusModeItem = CreateModeItem("집중 모드", PetMode.Focus, onModeSelected);
+
+        var captureRegionItem = new ToolStripMenuItem("캡처 범위 지정");
+        captureRegionItem.Click += (_, _) => onCaptureRegionRequested();
 
         var exitItem = new ToolStripMenuItem("종료");
         exitItem.Click += (_, _) => onExitRequested();
@@ -24,6 +27,8 @@ public sealed class TrayIconService : IDisposable
         contextMenu.Items.Add(_normalModeItem);
         contextMenu.Items.Add(_stayModeItem);
         contextMenu.Items.Add(_focusModeItem);
+        contextMenu.Items.Add(new ToolStripSeparator());
+        contextMenu.Items.Add(captureRegionItem);
         contextMenu.Items.Add(new ToolStripSeparator());
         contextMenu.Items.Add(exitItem);
 
