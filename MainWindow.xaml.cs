@@ -45,16 +45,37 @@ public partial class MainWindow : Window
 
         _trayIcon = new TrayIconService(
             _behavior.Mode,
-            mode =>
-            {
-                _behavior.SetMode(mode);
-                RefreshVisual();
-            },
+            ApplyModeSelection,
             () => System.Windows.Application.Current.Shutdown());
+
+        UpdateModeMenuChecks();
 
         Loaded += MainWindow_Loaded;
         Closed += MainWindow_Closed;
     }
+
+    private void ApplyModeSelection(PetMode mode)
+    {
+        _behavior.SetMode(mode);
+        RefreshVisual();
+        UpdateModeMenuChecks();
+        _trayIcon.SyncMode(mode);
+    }
+
+    private void UpdateModeMenuChecks()
+    {
+        NormalModeMenuItem.IsChecked = _behavior.Mode == PetMode.Normal;
+        StayModeMenuItem.IsChecked = _behavior.Mode == PetMode.Stay;
+        FocusModeMenuItem.IsChecked = _behavior.Mode == PetMode.Focus;
+    }
+
+    private void NormalModeMenuItem_Click(object sender, RoutedEventArgs e) => ApplyModeSelection(PetMode.Normal);
+
+    private void StayModeMenuItem_Click(object sender, RoutedEventArgs e) => ApplyModeSelection(PetMode.Stay);
+
+    private void FocusModeMenuItem_Click(object sender, RoutedEventArgs e) => ApplyModeSelection(PetMode.Focus);
+
+    private void ExitMenuItem_Click(object sender, RoutedEventArgs e) => System.Windows.Application.Current.Shutdown();
 
     private void LoadSkin()
     {

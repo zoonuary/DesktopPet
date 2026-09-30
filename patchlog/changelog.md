@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-09-30
+
+- Added a WPF `Window.ContextMenu` directly on `MainWindow` (일반 모드/여기서 쉬기/집중 모드 + 구분선 + 종료), so the pet can be closed or its mode changed by right-clicking it directly instead of hunting for the tray icon.
+- Refactored mode changes to a single entry point, `ApplyModeSelection(PetMode)`, called by both the tray menu and the new pet context menu; it updates behavior, refreshes the visual, and syncs check marks on both menus. Added `TrayIconService.SyncMode(PetMode)` so the tray menu can be kept in sync when the mode changes from the other menu.
+- Verified: `dotnet build` clean; user confirmed the pet context menu opens on right-click, mode switches and exit work from it, and both menus' checkmarks stay in sync.
+- Updated `patchlog/current/module-overview.md`: new context menu behavior, `ApplyModeSelection` as the mode-change entry point, and fixed a stale line claiming the sprite loader wasn't wired yet (it has been since the previous sprite-loading changelog entry).
+
 ## 2026-09-29 (4)
 
 - Decided to use a portable self-contained single-file `dotnet publish` build for cross-PC testing instead of a full installer (still deferred to the real deployment stage). See `patchlog/decisions/2026-09-29-portable-publish.md` for the exact command and output layout.

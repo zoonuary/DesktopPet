@@ -14,6 +14,15 @@
         ShowInTaskbar="False"
         ResizeMode="NoResize"
         MouseLeftButtonDown="Window_MouseLeftButtonDown">
+    <Window.ContextMenu>
+        <ContextMenu>
+            <MenuItem x:Name="NormalModeMenuItem" Header="일반 모드" IsCheckable="True" Click="NormalModeMenuItem_Click"/>
+            <MenuItem x:Name="StayModeMenuItem" Header="여기서 쉬기" IsCheckable="True" Click="StayModeMenuItem_Click"/>
+            <MenuItem x:Name="FocusModeMenuItem" Header="집중 모드" IsCheckable="True" Click="FocusModeMenuItem_Click"/>
+            <Separator/>
+            <MenuItem Header="종료" Click="ExitMenuItem_Click"/>
+        </ContextMenu>
+    </Window.ContextMenu>
     <Grid>
         <Ellipse x:Name="PetPlaceholder" Width="120" Height="120" Fill="CornflowerBlue"/>
         <Image x:Name="PetImage" Width="160" Height="160" Stretch="Uniform" Visibility="Collapsed" RenderTransformOrigin="0.5,0.5">

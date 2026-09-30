@@ -49,6 +49,8 @@ public sealed class TrayIconService : IDisposable
         return item;
     }
 
+    public void SyncMode(PetMode mode) => SetCheckedMode(mode);
+
     private void SetCheckedMode(PetMode mode)
     {
         _normalModeItem.Checked = mode == PetMode.Normal;
